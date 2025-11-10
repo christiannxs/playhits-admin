@@ -1,0 +1,26 @@
+import React, { useState, useEffect } from 'react';
+
+// This hook is no longer used for the main data models (designers, tasks, etc.)
+// as they are now fetched from Supabase. It's kept for client-side state like `submissionWindow`.
+export const useLocalStorage = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(error);
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const valueToStore = JSON.stringify(storedValue);
+      window.localStorage.setItem(key, valueToStore);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [key, storedValue]);
+
+  return [storedValue, setStoredValue];
+};

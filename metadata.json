@@ -1,0 +1,5 @@
+{
+  "name": "Play Hits Admin",
+  "description": "An internal management system for Play Hits to track designer tasks and payments. The app allows for task assignment, automatic payment calculation based on media type, and generation of weekly and monthly payment reports for freelancers and fixed employees.",
+  "requestFramePermissions": []
+}
