@@ -8,8 +8,8 @@ import { SearchIcon, PencilIcon, CashIcon, TrashIcon, PlusIcon } from './icons/I
 interface DesignersViewProps {
   designers: Designer[];
   tasks: Task[];
-  onAddDesigner: (designerData: Omit<Designer, 'id'>) => void;
-  onUpdateDesigner: (designerData: Designer) => void;
+  onAddDesigner: (designerData: any) => Promise<{ success: boolean; message: string }>;
+  onUpdateDesigner: (designerData: Designer) => Promise<{ success: boolean; message: string }>;
   advances: Advance[];
   onAddAdvance: (advanceData: Omit<Advance, 'id'>) => void;
   onDeleteAdvance: (advanceId: string) => void;
@@ -203,28 +203,34 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [selectedDesignerForAdvance, setSelectedDesignerForAdvance] = useState<Designer | null>(null);
 
-  const initialFormState: Omit<Designer, 'id'> = { auth_user_id: '', name: '', username: '', role: 'Designer', type: DesignerType.Freelancer, salary: 0 };
-  const [formData, setFormData] = useState<Omit<Designer, 'id'>>(initialFormState);
+  const initialAddFormState = { name: '', username: '', email: '', password: '', confirmPassword: '', role: 'Designer', type: DesignerType.Freelancer, salary: 0 };
+  const [addFormData, setAddFormData] = useState(initialAddFormState);
+  const [editFormData, setEditFormData] = useState<Partial<Designer>>({});
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [addFormError, setAddFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [editFormError, setEditFormError] = useState('');
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+
 
   const openAddModal = () => {
     setEditingDesigner(null);
-    setFormData(initialFormState);
+    setAddFormData(initialAddFormState);
+    setAddFormError('');
     setIsAddModalOpen(true);
   };
 
   const openEditModal = (designer: Designer) => {
     setEditingDesigner(designer);
-    setFormData({
-        // keep auth_user_id and username for context, though they won't be in the form itself
-        auth_user_id: designer.auth_user_id,
-        username: designer.username,
-        // editable fields
+    setEditFormData({
         name: designer.name,
         role: designer.role,
         type: designer.type,
         salary: designer.salary || 0,
     });
+    setEditFormError('');
     setIsEditModalOpen(true);
   };
   
@@ -237,36 +243,75 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
   const closeAddModal = () => setIsAddModalOpen(false);
   const closeAdvanceModal = () => setIsAdvanceModalOpen(false);
 
-  const handleUpdateSubmit = (e: React.FormEvent) => {
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDesigner) return;
 
+    setEditFormError('');
+    setIsEditSubmitting(true);
+
     const dataToSubmit: Designer = { 
         ...editingDesigner,
-        name: formData.name,
-        role: formData.role,
-        type: formData.type,
-        salary: formData.type === DesignerType.Fixed ? formData.salary : undefined,
+        name: editFormData.name || editingDesigner.name,
+        role: editFormData.role || editingDesigner.role,
+        type: editFormData.type || editingDesigner.type,
+        salary: editFormData.type === DesignerType.Fixed ? (editFormData.salary || 0) : undefined,
     };
     
-    onUpdateDesigner(dataToSubmit);
-    closeEditModal();
+    const { success, message } = await onUpdateDesigner(dataToSubmit);
+    setIsEditSubmitting(false);
+
+    if (success) {
+      closeEditModal();
+    } else {
+      setEditFormError(message);
+    }
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const dataToSubmit: Omit<Designer, 'id'> = {
-        ...formData,
-        salary: formData.type === DesignerType.Fixed ? formData.salary : undefined,
+    setAddFormError('');
+
+    const usernameRegex = /^[a-z0-9_.-]+$/;
+    if (!usernameRegex.test(addFormData.username.toLowerCase())) {
+      setAddFormError('O nome de usuário deve conter apenas letras minúsculas, números, pontos, underscores ou hifens.');
+      return;
     }
-    onAddDesigner(dataToSubmit);
-    closeAddModal();
+
+    if (addFormData.password !== addFormData.confirmPassword) {
+      setAddFormError('As senhas não coincidem.');
+      return;
+    }
+    if (addFormData.password.length < 6) {
+        setAddFormError('A senha deve ter pelo menos 6 caracteres.');
+        return;
+    }
+
+    setIsSubmitting(true);
+    const designerData = {
+        email: `${addFormData.username.toLowerCase()}@playhits.local`,
+        password: addFormData.password,
+        name: addFormData.name,
+        username: addFormData.username.toLowerCase(),
+        role: addFormData.role,
+        type: addFormData.type,
+        salary: addFormData.type === DesignerType.Fixed ? addFormData.salary : undefined,
+    };
+    
+    const { success, message } = await onAddDesigner(designerData);
+    setIsSubmitting(false);
+
+    if (success) {
+      closeAddModal();
+    } else {
+      setAddFormError(message || 'Ocorreu um erro desconhecido.');
+    }
   }
 
   const filteredDesigners = useMemo(() => {
     return designers.filter(designer => 
       designer.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    ).sort((a,b) => a.name.localeCompare(b.name));
   }, [designers, searchQuery]);
 
   return (
@@ -305,31 +350,39 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
         <form onSubmit={handleUpdateSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
-            <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="text" value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário (não pode ser alterado)</label>
-            <input type="text" value={formData.username} className="w-full p-2 border rounded-lg bg-base-300 border-base-300 text-base-content-secondary" disabled />
+            <input type="text" value={editingDesigner?.username || ''} className="w-full p-2 border rounded-lg bg-base-300 border-base-300 text-base-content-secondary" disabled />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
-            <input type="text" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required />
+             <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
+                <option value="Designer">Designer</option>
+                <option value="Freelancer">Freelancer</option>
+                <option value="Diretor de Arte">Diretor de Arte</option>
+                <option value="Financeiro">Financeiro</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Contrato</label>
-            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={editFormData.type} onChange={e => setEditFormData({ ...editFormData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
               <option value={DesignerType.Freelancer}>Freelancer</option>
               <option value={DesignerType.Fixed}>Fixo</option>
             </select>
           </div>
-          {formData.type === DesignerType.Fixed && (
+          {editFormData.type === DesignerType.Fixed && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Salário Mensal (R$)</label>
-                <input type="number" step="0.01" value={formData.salary} onChange={e => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                <input type="number" step="0.01" value={editFormData.salary} onChange={e => setEditFormData({ ...editFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
             </div>
           )}
+           {editFormError && <p className="text-sm text-red-400 text-center bg-red-900/50 p-2 rounded-md">{editFormError}</p>}
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Alterações</button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors disabled:bg-base-300" disabled={isEditSubmitting}>
+              {isEditSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
           </div>
         </form>
       </Modal>
@@ -337,22 +390,33 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
       {/* Add Modal */}
       <Modal isOpen={isAddModalOpen} onClose={closeAddModal} title="Adicionar Novo Designer">
         <form onSubmit={handleAddSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">ID de Autenticação do Usuário (UID)</label>
-            <input type="text" value={formData.auth_user_id} onChange={e => setFormData({ ...formData, auth_user_id: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" placeholder="Cole o UID do Supabase aqui" required />
-            <p className="text-xs text-base-content-secondary mt-1">Crie o usuário em 'Authentication' no Supabase primeiro e cole o UID dele aqui.</p>
-          </div>
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
-            <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="text" value={addFormData.name} onChange={e => setAddFormData({ ...addFormData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
            <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário</label>
-            <input type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário (para login)</label>
+            <input 
+              type="text" 
+              value={addFormData.username} 
+              onChange={e => setAddFormData({ ...addFormData, username: e.target.value.toLowerCase() })} 
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required 
+              autoCapitalize="none"
+            />
+             <p className="text-xs text-base-content-secondary mt-1">O email será gerado como `nome.de.usuario@playhits.local`. Use apenas letras minúsculas, números e pontos/hifens.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Senha</label>
+            <input type="password" value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+          </div>
+           <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Confirmar Senha</label>
+            <input type="password" value={addFormData.confirmPassword} onChange={e => setAddFormData({ ...addFormData, confirmPassword: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
-            <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
+            <select value={addFormData.role} onChange={e => setAddFormData({ ...addFormData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
                 <option value="Designer">Designer</option>
                 <option value="Freelancer">Freelancer</option>
                 <option value="Diretor de Arte">Diretor de Arte</option>
@@ -361,19 +425,24 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           </div>
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Contrato</label>
-            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={addFormData.type} onChange={e => setAddFormData({ ...addFormData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
               <option value={DesignerType.Freelancer}>Freelancer</option>
               <option value={DesignerType.Fixed}>Fixo</option>
             </select>
           </div>
-          {formData.type === DesignerType.Fixed && (
+          {addFormData.type === DesignerType.Fixed && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Salário Mensal (R$)</label>
-                <input type="number" step="0.01" value={formData.salary} onChange={e => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                <input type="number" step="0.01" value={addFormData.salary} onChange={e => setAddFormData({ ...addFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" />
             </div>
           )}
+
+          {addFormError && <p className="text-sm text-red-400 text-center bg-red-900/50 p-2 rounded-md">{addFormError}</p>}
+
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Designer</button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors disabled:bg-base-300" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : 'Salvar Designer'}
+              </button>
           </div>
         </form>
       </Modal>
