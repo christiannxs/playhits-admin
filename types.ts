@@ -4,10 +4,10 @@ export enum DesignerType {
 }
 
 export interface Designer {
-  id: string;
+  id: string; // Primary key from the 'designers' table
+  auth_user_id: string; // Foreign key to auth.users.id
   name: string;
   username: string;
-  password?: string;
   type?: DesignerType;
   role: string;
   salary?: number;
@@ -16,13 +16,13 @@ export interface Designer {
 export interface Task {
   id: string;
   description: string;
-  designerId: string;
-  mediaType: string;
-  dueDate: string; // YYYY-MM-DD
-  createdDate: string; // ISO 8601 timestamp
+  designer_id: string;
+  media_type: string;
+  due_date: string; // YYYY-MM-DD
+  created_at: string; // Supabase default timestamp
   value: number;
   artist: string;
-  socialMedia: string;
+  social_media: string;
 }
 
 export interface Artist {
@@ -32,7 +32,7 @@ export interface Artist {
 
 export interface Advance {
   id: string;
-  designerId: string;
+  designer_id: string;
   amount: number;
   date: string; // YYYY-MM-DD
   description: string;

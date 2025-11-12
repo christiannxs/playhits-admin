@@ -1,26 +1,29 @@
+
 import React, { useState } from 'react';
 import { UserIcon, LockClosedIcon } from './icons/Icons';
 
 
 interface LoginViewProps {
-  onLogin: (username: string, pass: string) => boolean;
+  onLogin: (username: string, pass: string) => Promise<{ success: boolean; message: string }>;
+  profileError?: string;
 }
 
-const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
+const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const success = onLogin(username, password);
+    const { success, message } = await onLogin(username, password);
     if (!success) {
-      setError('Usuário ou senha inválidos.');
+      setError(message);
+      setLoading(false);
     }
-    // No need to set loading to false, as page will redirect/re-render
+    // No need to set loading to false on success, as page will redirect/re-render via onAuthStateChange
   };
 
   return (
@@ -34,6 +37,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <p className="text-base-content-secondary">Acesse o painel de controle</p>
             </div>
             
+            {profileError && (
+              <div className="text-sm text-amber-300 bg-amber-900/50 border border-amber-500 p-3 rounded-lg text-center">
+                <p className="font-bold mb-1">Erro de Configuração de Perfil</p>
+                <p>{profileError}</p>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
             <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary" />

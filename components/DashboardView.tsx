@@ -39,14 +39,14 @@ const FinancialDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser' | 'su
 
     const freelancerReports = useMemo(() => freelancers.map(designer => {
         const tasksInPeriod = tasks.filter(task =>
-            task.designerId === designer.id &&
-            new Date(task.createdDate) >= weekRange.start &&
-            new Date(task.createdDate) <= weekRange.end
+            task.designer_id === designer.id &&
+            new Date(task.created_at) >= weekRange.start &&
+            new Date(task.created_at) <= weekRange.end
         );
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
 
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === designer.id &&
+            adv.designer_id === designer.id &&
             new Date(adv.date) >= weekRange.start &&
             new Date(adv.date) <= weekRange.end
         );
@@ -59,7 +59,7 @@ const FinancialDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser' | 'su
 
     const fixedReports = useMemo(() => fixedDesigners.map(designer => {
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === designer.id &&
+            adv.designer_id === designer.id &&
             new Date(adv.date) >= monthRange.start &&
             new Date(adv.date) <= monthRange.end
         );
@@ -173,9 +173,9 @@ const DirectorDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser'>> = ({
     const monthRange = getMonthRange(today);
     
     const freelancerTasksThisWeek = tasks.filter(task => {
-        const designer = designers.find(d => d.id === task.designerId);
+        const designer = designers.find(d => d.id === task.designer_id);
         if (!designer || designer.type !== DesignerType.Freelancer) return false;
-        const created = new Date(task.createdDate);
+        const created = new Date(task.created_at);
         return created >= weekRange.start && created <= weekRange.end;
     });
     const weeklyFreelancerTotal = freelancerTasksThisWeek.reduce((sum, task) => sum + task.value, 0);
@@ -184,9 +184,9 @@ const DirectorDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser'>> = ({
     const monthlyFixedTotal = fixedDesigners.reduce((sum, d) => sum + (d.salary || 0), 0);
 
     const freelancerTasksThisMonth = tasks.filter(task => {
-        const designer = designers.find(d => d.id === task.designerId);
+        const designer = designers.find(d => d.id === task.designer_id);
         if (!designer || designer.type !== DesignerType.Freelancer) return false;
-        const created = new Date(task.createdDate);
+        const created = new Date(task.created_at);
         return created >= monthRange.start && created <= monthRange.end;
     });
     const monthlyFreelancerTotal = freelancerTasksThisMonth.reduce((sum, task) => sum + task.value, 0);
@@ -199,7 +199,7 @@ const DirectorDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser'>> = ({
             cost = designer.salary || 0;
         } else {
             cost = tasks
-                .filter(task => task.designerId === designer.id && new Date(task.createdDate) >= monthRange.start && new Date(task.createdDate) <= monthRange.end)
+                .filter(task => task.designer_id === designer.id && new Date(task.created_at) >= monthRange.start && new Date(task.created_at) <= monthRange.end)
                 .reduce((sum, task) => sum + task.value, 0);
         }
         return {
@@ -270,13 +270,13 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
     if (isFixed) {
         const monthRange = getMonthRange(today);
         const myTasksThisMonth = tasks.filter(task => {
-            if (task.designerId !== loggedInUser.id) return false;
-            const created = new Date(task.createdDate);
+            if (task.designer_id !== loggedInUser.id) return false;
+            const created = new Date(task.created_at);
             return created >= monthRange.start && created <= monthRange.end;
         });
 
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === loggedInUser.id &&
+            adv.designer_id === loggedInUser.id &&
             new Date(adv.date) >= monthRange.start &&
             new Date(adv.date) <= monthRange.end
         );
@@ -288,14 +288,14 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
     } else { // Freelancer
         const weekRange = getWeekRange(today);
         const myTasksThisWeek = tasks.filter(task => {
-            if (task.designerId !== loggedInUser.id) return false;
-            const created = new Date(task.createdDate);
+            if (task.designer_id !== loggedInUser.id) return false;
+            const created = new Date(task.created_at);
             return created >= weekRange.start && created <= weekRange.end;
         });
         const weeklyTaskTotal = myTasksThisWeek.reduce((sum, task) => sum + task.value, 0);
 
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === loggedInUser.id &&
+            adv.designer_id === loggedInUser.id &&
             new Date(adv.date) >= weekRange.start &&
             new Date(adv.date) <= weekRange.end
         );

@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Designer, DesignerType, Advance, Task } from '../types';
 import { formatCurrency, formatDate, getWeekRange, getMonthRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, SearchIcon, PencilIcon, CashIcon, TrashIcon } from './icons/Icons';
+import { SearchIcon, PencilIcon, CashIcon, TrashIcon, PlusIcon } from './icons/Icons';
 
 interface DesignersViewProps {
   designers: Designer[];
@@ -31,7 +32,7 @@ const DesignerCard: React.FC<{
         const monthRange = getMonthRange(today);
         
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === designer.id &&
+            adv.designer_id === designer.id &&
             new Date(adv.date) >= monthRange.start &&
             new Date(adv.date) <= monthRange.end
         );
@@ -41,9 +42,9 @@ const DesignerCard: React.FC<{
         periodLabel = 'Pagamento do Mês';
 
         const tasksInMonth = tasks.filter(task => 
-            task.designerId === designer.id &&
-            new Date(task.createdDate) >= monthRange.start &&
-            new Date(task.createdDate) <= monthRange.end
+            task.designer_id === designer.id &&
+            new Date(task.created_at) >= monthRange.start &&
+            new Date(task.created_at) <= monthRange.end
         );
         productionValue = tasksInMonth.reduce((sum, task) => sum + task.value, 0);
         productionLabel = 'Produção do Mês';
@@ -51,14 +52,14 @@ const DesignerCard: React.FC<{
     } else { // Freelancer
         const weekRange = getWeekRange(today);
         const tasksInPeriod = tasks.filter(task => 
-            task.designerId === designer.id &&
-            new Date(task.createdDate) >= weekRange.start &&
-            new Date(task.createdDate) <= weekRange.end
+            task.designer_id === designer.id &&
+            new Date(task.created_at) >= weekRange.start &&
+            new Date(task.created_at) <= weekRange.end
         );
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
 
         const advancesInPeriod = advances.filter(adv =>
-            adv.designerId === designer.id &&
+            adv.designer_id === designer.id &&
             new Date(adv.date) >= weekRange.start &&
             new Date(adv.date) <= weekRange.end
         );
@@ -126,7 +127,7 @@ const AdvanceModal: React.FC<{
   if (!isOpen || !designer) return null;
 
   const designerAdvances = advances
-    .filter(adv => adv.designerId === designer.id)
+    .filter(adv => adv.designer_id === designer.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleAdd = (e: React.FormEvent) => {
@@ -134,7 +135,7 @@ const AdvanceModal: React.FC<{
     const numericAmount = parseFloat(amount);
     if (!isNaN(numericAmount) && numericAmount > 0 && description && date) {
       onAddAdvance({
-        designerId: designer.id,
+        designer_id: designer.id,
         amount: numericAmount,
         description,
         date: date, // Pass YYYY-MM-DD string directly
@@ -195,33 +196,36 @@ const AdvanceModal: React.FC<{
 
 
 const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDesigner, onUpdateDesigner, advances, onAddAdvance, onDeleteAdvance }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDesigner, setEditingDesigner] = useState<Designer | null>(null);
   
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
   const [selectedDesignerForAdvance, setSelectedDesignerForAdvance] = useState<Designer | null>(null);
 
-  const initialFormState: Omit<Designer, 'id'> = { name: '', username: '', role: '', type: DesignerType.Freelancer, salary: 0, password: 'playhits2025' };
+  const initialFormState: Omit<Designer, 'id'> = { auth_user_id: '', name: '', username: '', role: 'Designer', type: DesignerType.Freelancer, salary: 0 };
   const [formData, setFormData] = useState<Omit<Designer, 'id'>>(initialFormState);
   const [searchQuery, setSearchQuery] = useState('');
 
   const openAddModal = () => {
     setEditingDesigner(null);
     setFormData(initialFormState);
-    setIsModalOpen(true);
+    setIsAddModalOpen(true);
   };
 
   const openEditModal = (designer: Designer) => {
     setEditingDesigner(designer);
     setFormData({
-        name: designer.name,
+        // keep auth_user_id and username for context, though they won't be in the form itself
+        auth_user_id: designer.auth_user_id,
         username: designer.username,
+        // editable fields
+        name: designer.name,
         role: designer.role,
         type: designer.type,
         salary: designer.salary || 0,
-        password: designer.password || 'playhits2025',
     });
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
   };
   
   const openAdvanceModal = (designer: Designer) => {
@@ -229,29 +233,35 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
     setIsAdvanceModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
-  
-  const closeAdvanceModal = () => {
-    setIsAdvanceModalOpen(false);
-  };
+  const closeEditModal = () => setIsEditModalOpen(false);
+  const closeAddModal = () => setIsAddModalOpen(false);
+  const closeAdvanceModal = () => setIsAdvanceModalOpen(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const dataToSubmit: Partial<Designer> = { ...formData };
-    if (dataToSubmit.type === DesignerType.Freelancer) {
-      delete dataToSubmit.salary;
-    }
+    if (!editingDesigner) return;
 
-    if (editingDesigner) {
-      onUpdateDesigner({ ...editingDesigner, ...dataToSubmit });
-    } else {
-      onAddDesigner(dataToSubmit as Omit<Designer, 'id'>);
-    }
+    const dataToSubmit: Designer = { 
+        ...editingDesigner,
+        name: formData.name,
+        role: formData.role,
+        type: formData.type,
+        salary: formData.type === DesignerType.Fixed ? formData.salary : undefined,
+    };
     
-    setIsModalOpen(false);
+    onUpdateDesigner(dataToSubmit);
+    closeEditModal();
   };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const dataToSubmit: Omit<Designer, 'id'> = {
+        ...formData,
+        salary: formData.type === DesignerType.Fixed ? formData.salary : undefined,
+    }
+    onAddDesigner(dataToSubmit);
+    closeAddModal();
+  }
 
   const filteredDesigners = useMemo(() => {
     return designers.filter(designer => 
@@ -290,19 +300,16 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingDesigner ? 'Editar Designer' : 'Adicionar Novo Designer'}>
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Edit Modal */}
+      <Modal isOpen={isEditModalOpen} onClose={closeEditModal} title={'Editar Designer'}>
+        <form onSubmit={handleUpdateSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
             <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário</label>
-            <input type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Senha</label>
-            <input type="text" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário (não pode ser alterado)</label>
+            <input type="text" value={formData.username} className="w-full p-2 border rounded-lg bg-base-300 border-base-300 text-base-content-secondary" disabled />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
@@ -322,7 +329,51 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
             </div>
           )}
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">{editingDesigner ? 'Salvar Alterações' : 'Salvar Designer'}</button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Alterações</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Modal */}
+      <Modal isOpen={isAddModalOpen} onClose={closeAddModal} title="Adicionar Novo Designer">
+        <form onSubmit={handleAddSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">ID de Autenticação do Usuário (UID)</label>
+            <input type="text" value={formData.auth_user_id} onChange={e => setFormData({ ...formData, auth_user_id: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" placeholder="Cole o UID do Supabase aqui" required />
+            <p className="text-xs text-base-content-secondary mt-1">Crie o usuário em 'Authentication' no Supabase primeiro e cole o UID dele aqui.</p>
+          </div>
+           <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
+            <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+          </div>
+           <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário</label>
+            <input type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
+            <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
+                <option value="Designer">Designer</option>
+                <option value="Freelancer">Freelancer</option>
+                <option value="Diretor de Arte">Diretor de Arte</option>
+                <option value="Financeiro">Financeiro</option>
+            </select>
+          </div>
+           <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Contrato</label>
+            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+              <option value={DesignerType.Freelancer}>Freelancer</option>
+              <option value={DesignerType.Fixed}>Fixo</option>
+            </select>
+          </div>
+          {formData.type === DesignerType.Fixed && (
+            <div>
+                <label className="block text-sm font-medium text-base-content-secondary mb-1">Salário Mensal (R$)</label>
+                <input type="number" step="0.01" value={formData.salary} onChange={e => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            </div>
+          )}
+          <div className="flex justify-end pt-4">
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Designer</button>
           </div>
         </form>
       </Modal>

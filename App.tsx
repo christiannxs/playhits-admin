@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Designer, Task, ViewType, Artist, Advance } from './types';
-import { INITIAL_DESIGNERS, INITIAL_TASKS, INITIAL_ARTISTS, INITIAL_ADVANCES, MEDIA_PRICES } from './constants';
+import { MEDIA_PRICES } from './constants';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
 import TasksView from './components/TasksView';
@@ -10,35 +10,136 @@ import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
 import ArtistsView from './components/ArtistsView';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { supabase, configurationError } from './lib/supabaseClient';
+
+const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
+  <div className="min-h-screen flex flex-col bg-base-200">
+    <main className="flex-1 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl p-8 space-y-6 bg-base-100 rounded-2xl shadow-lg">
+          <div className="flex flex-col items-center space-y-4">
+              <h1 className="text-3xl font-bold text-center text-red-500">
+                Configuração Incompleta
+              </h1>
+              <p className="text-base-content-secondary text-center">
+                O aplicativo não pode se conectar ao banco de dados porque as credenciais do Supabase não foram fornecidas.
+              </p>
+              <div className="w-full p-4 bg-base-200 rounded-lg text-base-content text-center font-mono">
+                {message}
+              </div>
+              <p className="text-sm text-base-content-secondary text-center pt-4">
+                Por favor, siga as instruções no arquivo <strong>lib/supabaseClient.ts</strong> para encontrar e adicionar sua URL e Chave Pública (anon). Depois de salvar o arquivo, o aplicativo será recarregado automaticamente.
+              </p>
+          </div>
+      </div>
+    </main>
+    <footer className="bg-base-100 text-center p-4 text-xs text-base-content-secondary no-print uppercase">
+        aplicativo desenvolvido por Christian Rodrigues - todos direitos reservados - phd marketing inteligente
+    </footer>
+  </div>
+);
+
 
 const App: React.FC = () => {
+  if (configurationError || !supabase) {
+    return <ConfigurationErrorView message={configurationError || "Cliente Supabase não inicializado."} />;
+  }
+  
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
-  const [designers, setDesigners] = useLocalStorage<Designer[]>('designers', INITIAL_DESIGNERS);
-  const [tasks, setTasks] = useLocalStorage<Task[]>('tasks', INITIAL_TASKS);
-  const [artists, setArtists] = useLocalStorage<Artist[]>('artists', INITIAL_ARTISTS);
-  const [advances, setAdvances] = useLocalStorage<Advance[]>('advances', INITIAL_ADVANCES);
-  const [loggedInUser, setLoggedInUser] = useLocalStorage<Designer | null>('loggedInUser', null);
+  const [designers, setDesigners] = useState<Designer[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [advances, setAdvances] = useState<Advance[]>([]);
+  const [loggedInUser, setLoggedInUser] = useState<Designer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loginProfileError, setLoginProfileError] = useState('');
   const [submissionWindow, setSubmissionWindow] = useLocalStorage<{isOpen: boolean; deadline: string | null}>('submissionWindow', { isOpen: false, deadline: null });
 
-  // Auto-close submission window if deadline has passed
+  const fetchData = async (userId: string) => {
+    try {
+      const [designersRes, tasksRes, artistsRes, advancesRes] = await Promise.all([
+        supabase.from('designers').select('*'),
+        supabase.from('tasks').select('*'),
+        supabase.from('artists').select('*'),
+        supabase.from('advances').select('*'),
+      ]);
+
+      if (designersRes.error) throw designersRes.error;
+      if (tasksRes.error) throw tasksRes.error;
+      if (artistsRes.error) throw artistsRes.error;
+      if (advancesRes.error) throw advancesRes.error;
+      
+      const allDesigners: Designer[] = designersRes.data;
+      const currentUserProfile = allDesigners.find(d => d.auth_user_id === userId);
+
+      setDesigners(allDesigners);
+      setTasks(tasksRes.data);
+      setArtists(artistsRes.data);
+      setAdvances(advancesRes.data);
+      
+      if (currentUserProfile) {
+        setLoggedInUser(currentUserProfile);
+        setLoginProfileError(''); // Clear error on successful fetch
+      } else {
+        const errorMsg = "Login autenticado, mas o perfil do usuário não foi encontrado no banco de dados. O User ID na tabela de Autenticação não corresponde a nenhum registro na tabela 'designers'. Verifique se o ID foi copiado corretamente.";
+        console.error(errorMsg);
+        setLoginProfileError(errorMsg); // Set specific error message
+        await supabase.auth.signOut(); // Sign out the user
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || JSON.stringify(error, null, 2);
+      console.error("Erro ao buscar dados:", errorMessage);
+       setLoginProfileError(`Erro ao buscar dados: ${errorMessage}. Verifique as permissões de acesso (RLS) no Supabase.`);
+      await supabase.auth.signOut();
+    } finally {
+        setLoading(false);
+    }
+  };
+
+
   useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await fetchData(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        await fetchData(session.user.id);
+      } else {
+        setLoggedInUser(null);
+      }
+    });
+
     if (submissionWindow.isOpen && submissionWindow.deadline) {
       if (new Date() > new Date(submissionWindow.deadline)) {
         setSubmissionWindow({ isOpen: false, deadline: null });
       }
     }
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  const handleLogin = (username: string, pass: string): boolean => {
-    const user = designers.find(d => d.username === username && d.password === pass);
-    if (user) {
-      setLoggedInUser(user);
-      return true;
+  const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
+    setLoginProfileError(''); // Clear previous profile errors on a new attempt
+    const email = `${username.toLowerCase()}@playhits.local`;
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) {
+      console.error('Erro no login:', error.message);
+      return { success: false, message: 'Usuário ou senha inválidos.' };
     }
-    return false;
+    return { success: true, message: '' };
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setLoggedInUser(null);
   };
 
@@ -58,63 +159,74 @@ const App: React.FC = () => {
     });
   }, [setSubmissionWindow]);
 
-
-  const addTask = (taskData: Omit<Task, 'id' | 'createdDate' | 'value'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: new Date().toISOString() + Math.random(),
-      createdDate: new Date().toISOString(),
-      value: MEDIA_PRICES[taskData.mediaType]?.price || 0,
-    };
-    setTasks(prevTasks => [newTask, ...prevTasks]);
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => {
+    const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
+    const { data, error } = await supabase.from('tasks').insert({ ...taskData, value }).select().single();
+    if (error) console.error('Erro ao adicionar demanda:', error);
+    else if (data) setTasks(prev => [data, ...prev]);
   };
 
-  const updateTask = (updatedTask: Task) => {
-    setTasks(prevTasks => prevTasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+  const updateTask = async (updatedTask: Task) => {
+    const { data, error } = await supabase.from('tasks').update(updatedTask).eq('id', updatedTask.id).select().single();
+    if (error) console.error('Erro ao atualizar demanda:', error);
+    else if (data) setTasks(prev => prev.map(task => task.id === data.id ? data : task));
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+  const deleteTask = async (taskId: string) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) console.error('Erro ao deletar demanda:', error);
+    else setTasks(prev => prev.filter(task => task.id !== taskId));
   };
 
-  const addDesigner = (designerData: Omit<Designer, 'id'>) => {
-     const newDesigner: Designer = {
-      ...designerData,
-      id: designerData.username, // Use username as ID for simplicity in local version
-    };
-    setDesigners(prev => [...prev, newDesigner]);
+  const addDesigner = async (designerData: Omit<Designer, 'id'>) => {
+    const { data, error } = await supabase.from('designers').insert(designerData).select().single();
+    if (error) {
+      console.error('Erro ao adicionar designer:', error);
+      alert(`Erro ao adicionar designer: ${error.message}`);
+    } else if (data) {
+      setDesigners(prev => [data, ...prev]);
+    }
   };
 
-  const updateDesigner = (updatedDesigner: Designer) => {
-    setDesigners(prev => prev.map(d => d.id === updatedDesigner.id ? updatedDesigner : d));
+  const updateDesigner = async (updatedDesigner: Designer) => {
+    const { data, error } = await supabase.from('designers').update(updatedDesigner).eq('id', updatedDesigner.id).select().single();
+    if (error) console.error('Erro ao atualizar designer:', error);
+    else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
+  };
+  
+  const addArtist = async (artistData: Omit<Artist, 'id'>) => {
+    const { data, error } = await supabase.from('artists').insert(artistData).select().single();
+    if (error) console.error('Erro ao adicionar artista:', error);
+    else if (data) setArtists(prev => [data, ...prev]);
   };
 
-  const addArtist = (artistData: Omit<Artist, 'id'>) => {
-    const newArtist: Artist = { ...artistData, id: new Date().toISOString() };
-    setArtists(prev => [...prev, newArtist]);
+  const updateArtist = async (updatedArtist: Artist) => {
+    const { data, error } = await supabase.from('artists').update(updatedArtist).eq('id', updatedArtist.id).select().single();
+    if (error) console.error('Erro ao atualizar artista:', error);
+    else if (data) setArtists(prev => prev.map(a => a.id === data.id ? data : a));
   };
 
-  const updateArtist = (updatedArtist: Artist) => {
-     setArtists(prev => prev.map(a => a.id === updatedArtist.id ? updatedArtist : a));
-  };
-
-  const deleteArtist = (artistId: string) => {
+  const deleteArtist = async (artistId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este artista?')) {
-        setArtists(prev => prev.filter(a => a.id !== artistId));
+      const { error } = await supabase.from('artists').delete().eq('id', artistId);
+      if (error) console.error('Erro ao deletar artista:', error);
+      else setArtists(prev => prev.filter(a => a.id !== artistId));
     }
   };
 
-  const addAdvance = (advanceData: Omit<Advance, 'id'>) => {
-    const newAdvance: Advance = { ...advanceData, id: new Date().toISOString() };
-    setAdvances(prev => [...prev, newAdvance]);
+  const addAdvance = async (advanceData: Omit<Advance, 'id'>) => {
+    const { data, error } = await supabase.from('advances').insert(advanceData).select().single();
+    if (error) console.error('Erro ao adicionar adiantamento:', error);
+    else if(data) setAdvances(prev => [data, ...prev]);
   };
 
-  const deleteAdvance = (advanceId: string) => {
+  const deleteAdvance = async (advanceId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este adiantamento?')) {
-        setAdvances(prev => prev.filter(adv => adv.id !== advanceId));
+      const { error } = await supabase.from('advances').delete().eq('id', advanceId);
+      if (error) console.error('Erro ao deletar adiantamento:', error);
+      else setAdvances(prev => prev.filter(adv => adv.id !== advanceId));
     }
   };
-
 
   const renderView = () => {
     if (!loggedInUser) return null;
@@ -153,9 +265,17 @@ const App: React.FC = () => {
         return null;
     }
   };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-base-200">
+        <div className="text-base-content">Carregando...</div>
+      </div>
+    );
+  }
 
   if (!loggedInUser) {
-    return <LoginView onLogin={handleLogin} />;
+    return <LoginView onLogin={handleLogin} profileError={loginProfileError} />;
   }
 
   return (

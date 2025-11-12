@@ -22,14 +22,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
   
   const freelancerReports = freelancers.map(freelancer => {
     const completedTasks = tasks.filter(task => 
-      task.designerId === freelancer.id &&
-      new Date(task.createdDate) >= weekRange.start &&
-      new Date(task.createdDate) <= weekRange.end
+      task.designer_id === freelancer.id &&
+      new Date(task.created_at) >= weekRange.start &&
+      new Date(task.created_at) <= weekRange.end
     );
     const taskTotal = completedTasks.reduce((sum, task) => sum + task.value, 0);
 
     const advancesInPeriod = advances.filter(adv =>
-      adv.designerId === freelancer.id &&
+      adv.designer_id === freelancer.id &&
       new Date(adv.date) >= weekRange.start &&
       new Date(adv.date) <= weekRange.end
     );
@@ -43,12 +43,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
   const fixedReports = fixedDesigners.map(designer => {
     const completedTasks = tasks.filter(task =>
-      task.designerId === designer.id &&
-      new Date(task.createdDate) >= monthRange.start &&
-      new Date(task.createdDate) <= monthRange.end
+      task.designer_id === designer.id &&
+      new Date(task.created_at) >= monthRange.start &&
+      new Date(task.created_at) <= monthRange.end
     );
     const advancesInPeriod = advances.filter(adv =>
-      adv.designerId === designer.id &&
+      adv.designer_id === designer.id &&
       new Date(adv.date) >= monthRange.start &&
       new Date(adv.date) <= monthRange.end
     );
@@ -61,7 +61,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
   // Consolidated Monthly Report Data
   const monthlyTasksTotal = tasks
     .filter(task => {
-        const created = new Date(task.createdDate);
+        const created = new Date(task.created_at);
         return created >= monthRange.start && created <= monthRange.end;
     })
     .reduce((sum, task) => sum + task.value, 0);
@@ -91,11 +91,11 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
         const mediaSummary: Record<string, { count: number; total: number }> = {};
         
         report.completedTasks.forEach(task => {
-          if (!mediaSummary[task.mediaType]) {
-            mediaSummary[task.mediaType] = { count: 0, total: 0 };
+          if (!mediaSummary[task.media_type]) {
+            mediaSummary[task.media_type] = { count: 0, total: 0 };
           }
-          mediaSummary[task.mediaType].count++;
-          mediaSummary[task.mediaType].total += task.value;
+          mediaSummary[task.media_type].count++;
+          mediaSummary[task.media_type].total += task.value;
         });
 
         Object.entries(mediaSummary).forEach(([mediaType, summary]) => {
@@ -188,7 +188,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                         <tbody>
                           {completedTasks.map(task => (
                             <tr key={task.id} className="border-b border-base-300/50">
-                              <td className="p-2">{task.description} ({task.mediaType})<br/><span className="text-xs text-base-content-secondary/70">Sol: {task.socialMedia}</span></td>
+                              <td className="p-2">{task.description} ({task.media_type})<br/><span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span></td>
                               <td className="p-2">{task.artist}</td>
                               <td className="p-2 text-right">{formatCurrency(task.value)}</td>
                             </tr>

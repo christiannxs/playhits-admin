@@ -9,7 +9,7 @@ interface TasksViewProps {
   tasks: Task[];
   designers: Designer[];
   artists: Artist[];
-  onAddTask: (taskData: Omit<Task, 'id' | 'createdDate' | 'value'>) => void;
+  onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => void;
   onUpdateTask: (taskData: Task) => void;
   onDeleteTask: (taskId: string) => void;
   loggedInUser: Designer;
@@ -41,11 +41,11 @@ const TaskTable: React.FC<{
                           <p className="font-semibold text-base-content">{task.artist}</p>
                           <p className="text-sm text-base-content-secondary">{task.description}</p>
                           <p className="text-xs text-base-content-secondary mt-1">
-                              <span className="font-medium">Mídia:</span> {task.mediaType} | <span className="font-medium">Solicitante:</span> {task.socialMedia}
+                              <span className="font-medium">Mídia:</span> {task.media_type} | <span className="font-medium">Solicitante:</span> {task.social_media}
                           </p>
                       </td>
-                      <td className="p-4 text-base-content-secondary align-top">{designerMap.get(task.designerId) || 'N/A'}</td>
-                      <td className="p-4 text-base-content-secondary align-top">{formatDate(task.dueDate)}</td>
+                      <td className="p-4 text-base-content-secondary align-top">{designerMap.get(task.designer_id) || 'N/A'}</td>
+                      <td className="p-4 text-base-content-secondary align-top">{formatDate(task.due_date)}</td>
                       <td className="p-4 font-semibold text-base-content align-top">{formatCurrency(task.value)}</td>
                       {isDirector && (
                           <td className="p-4 align-top">
@@ -73,15 +73,15 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const initialFormState: Omit<Task, 'id' | 'createdDate' | 'value'> = { 
+  const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> = { 
     description: '', 
-    designerId: isDirector ? '' : loggedInUser.id, 
-    mediaType: '', 
-    dueDate: '', 
+    designer_id: isDirector ? '' : loggedInUser.id, 
+    media_type: '', 
+    due_date: '', 
     artist: '', 
-    socialMedia: '' 
+    social_media: '' 
   };
-  const [formData, setFormData] = useState<Omit<Task, 'id' | 'createdDate' | 'value'>>(initialFormState);
+  const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'>>(initialFormState);
   
   const [filterDesigner, setFilterDesigner] = useState<string>(isDirector ? 'all' : loggedInUser.id);
   
@@ -97,11 +97,11 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
     setEditingTask(task);
     setFormData({
       description: task.description,
-      designerId: task.designerId,
-      mediaType: task.mediaType,
-      dueDate: task.dueDate.split('T')[0],
+      designer_id: task.designer_id,
+      media_type: task.media_type,
+      due_date: task.due_date.split('T')[0],
       artist: task.artist,
-      socialMedia: task.socialMedia,
+      social_media: task.social_media,
     });
     setIsModalOpen(true);
   };
@@ -119,12 +119,12 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.description && formData.designerId && formData.mediaType && formData.dueDate && formData.artist && formData.socialMedia) {
+    if (formData.description && formData.designer_id && formData.media_type && formData.due_date && formData.artist && formData.social_media) {
       if (editingTask) {
         onUpdateTask({
           ...editingTask,
           ...formData,
-          value: MEDIA_PRICES[formData.mediaType]?.price || 0,
+          value: MEDIA_PRICES[formData.media_type]?.price || 0,
         });
       } else {
         onAddTask(formData);
@@ -135,16 +135,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-      const designerMatch = filterDesigner === 'all' || task.designerId === filterDesigner;
+      const designerMatch = filterDesigner === 'all' || task.designer_id === filterDesigner;
       return designerMatch;
-    }).sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime());
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [tasks, filterDesigner]);
   
   const groupedTasks = useMemo(() => {
     const groups: Record<string, { weekRange: { start: Date, end: Date }, tasks: Task[] }> = {};
     
     filteredTasks.forEach(task => {
-        const weekRange = getWeekRange(new Date(task.createdDate));
+        const weekRange = getWeekRange(new Date(task.created_at));
         const weekKey = toLocalDateString(weekRange.start);
         if (!groups[weekKey]) {
             groups[weekKey] = { weekRange, tasks: [] };
@@ -236,12 +236,12 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Social Media que solicitou</label>
-            <input type="text" value={formData.socialMedia} onChange={e => setFormData({ ...formData, socialMedia: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="text" value={formData.social_media} onChange={e => setFormData({ ...formData, social_media: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           {isDirector && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
-                <select value={formData.designerId} onChange={e => setFormData({ ...formData, designerId: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+                <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
                 <option value="">Selecione um designer</option>
                 {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -249,7 +249,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
           )}
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
-            <select value={formData.mediaType} onChange={e => setFormData({ ...formData, mediaType: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
               <option value="">Selecione um tipo</option>
               {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
             </select>
@@ -260,7 +260,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
-            <input type="date" value={formData.dueDate} onChange={e => setFormData({ ...formData, dueDate: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           <div className="flex justify-end pt-4">
             <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">{editingTask ? 'Salvar Alterações' : 'Salvar Demanda'}</button>

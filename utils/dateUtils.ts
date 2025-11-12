@@ -1,4 +1,4 @@
-import { Task, Advance } from './types';
+import { Task, Advance } from '../types';
 
 const TIMEZONE = 'America/Fortaleza';
 
@@ -67,15 +67,15 @@ export const formatDate = (dateString: string) => {
 };
 
 export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task[], allAdvances: Advance[]) => {
-  const designerTasks = allTasks.filter(t => t.designerId === designerId && t.value > 0);
-  const designerAdvances = allAdvances.filter(a => a.designerId === designerId);
+  const designerTasks = allTasks.filter(t => t.designer_id === designerId && t.value > 0);
+  const designerAdvances = allAdvances.filter(a => a.designer_id === designerId);
 
   if (designerTasks.length === 0 && designerAdvances.length === 0) return [];
 
   const weeklyTotals: Record<string, { range: { start: Date; end: Date }; total: number }> = {};
 
   [...designerTasks, ...designerAdvances].forEach(item => {
-    const date = 'createdDate' in item ? item.createdDate : item.date;
+    const date = 'created_at' in item ? item.created_at : item.date;
     const value = 'value' in item ? item.value : -item.amount;
     const weekRange = getWeekRange(new Date(date));
     const weekKey = toLocalDateString(weekRange.start); // Use timezone-aware date string as key
