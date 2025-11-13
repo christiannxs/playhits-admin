@@ -9,7 +9,7 @@ interface DesignersViewProps {
   designers: Designer[];
   tasks: Task[];
   onAddDesigner: (designerData: any) => Promise<{ success: boolean; message: string }>;
-  onUpdateDesigner: (designerData: Designer) => Promise<{ success: boolean; message: string }>;
+  onUpdateDesigner: (designerData: Designer) => void;
   advances: Advance[];
   onAddAdvance: (advanceData: Omit<Advance, 'id'>) => void;
   onDeleteAdvance: (advanceId: string) => void;
@@ -207,13 +207,8 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
   const [addFormData, setAddFormData] = useState(initialAddFormState);
   const [editFormData, setEditFormData] = useState<Partial<Designer>>({});
   const [searchQuery, setSearchQuery] = useState('');
-
   const [addFormError, setAddFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [editFormError, setEditFormError] = useState('');
-  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
-
 
   const openAddModal = () => {
     setEditingDesigner(null);
@@ -230,7 +225,6 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
         type: designer.type,
         salary: designer.salary || 0,
     });
-    setEditFormError('');
     setIsEditModalOpen(true);
   };
   
@@ -243,29 +237,20 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
   const closeAddModal = () => setIsAddModalOpen(false);
   const closeAdvanceModal = () => setIsAdvanceModalOpen(false);
 
-  const handleUpdateSubmit = async (e: React.FormEvent) => {
+  const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDesigner) return;
-
-    setEditFormError('');
-    setIsEditSubmitting(true);
 
     const dataToSubmit: Designer = { 
         ...editingDesigner,
         name: editFormData.name || editingDesigner.name,
         role: editFormData.role || editingDesigner.role,
         type: editFormData.type || editingDesigner.type,
-        salary: editFormData.type === DesignerType.Fixed ? (editFormData.salary || 0) : undefined,
+        salary: editFormData.type === DesignerType.Fixed ? editFormData.salary : undefined,
     };
     
-    const { success, message } = await onUpdateDesigner(dataToSubmit);
-    setIsEditSubmitting(false);
-
-    if (success) {
-      closeEditModal();
-    } else {
-      setEditFormError(message);
-    }
+    onUpdateDesigner(dataToSubmit);
+    closeEditModal();
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -378,11 +363,8 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
                 <input type="number" step="0.01" value={editFormData.salary} onChange={e => setEditFormData({ ...editFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
             </div>
           )}
-           {editFormError && <p className="text-sm text-red-400 text-center bg-red-900/50 p-2 rounded-md">{editFormError}</p>}
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors disabled:bg-base-300" disabled={isEditSubmitting}>
-              {isEditSubmitting ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Alterações</button>
           </div>
         </form>
       </Modal>

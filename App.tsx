@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Designer, Task, ViewType, Artist, Advance, DesignerType } from './types';
+import { Designer, Task, ViewType, Artist, Advance } from './types';
 import { MEDIA_PRICES } from './constants';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
@@ -180,73 +180,66 @@ const App: React.FC = () => {
   };
 
   const addDesigner = async (designerData: any): Promise<{ success: boolean; message: string }> => {
-    const { data, error } = await supabase.functions.invoke('create-user-and-profile', {
-      body: designerData,
-    });
+    const FUNCTION_TIMEOUT = 20000; // 20 seconds timeout
 
-    if (error) {
-      console.error('Erro ao chamar a Edge Function:', error);
-      
-      if (error instanceof FunctionsHttpError) {
-        try {
-          const errorJson = await error.context.json();
-          let detailedMessage = errorJson.details || errorJson.error || 'Erro desconhecido retornado pela função.';
-          
-          // Translate common errors
-          if (typeof detailedMessage === 'string') {
-            if (detailedMessage.includes('A user with this email address has already been registered')) {
-              detailedMessage = 'Já existe um usuário cadastrado com este e-mail.';
-            } else if (detailedMessage.includes('duplicate key value violates unique constraint "designers_username_key"')) {
-              detailedMessage = 'Este nome de usuário já está em uso.';
+    try {
+        const functionPromise = supabase.functions.invoke('create-user-and-profile', {
+            body: designerData,
+        });
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('A operação demorou muito para responder. Verifique sua conexão ou o status do servidor (Edge Function).')), FUNCTION_TIMEOUT)
+        );
+
+        // Race the function call against the timeout
+        const result: { data: any; error: any } = await Promise.race([functionPromise, timeoutPromise as any]);
+        
+        const { data, error } = result;
+
+        if (error) {
+            console.error('Erro ao chamar a Edge Function:', error);
+            
+            if (error instanceof FunctionsHttpError) {
+                try {
+                    const errorJson = await error.context.json();
+                    let detailedMessage = errorJson.details || errorJson.error || 'Erro desconhecido retornado pela função.';
+                    
+                    if (typeof detailedMessage === 'string') {
+                        if (detailedMessage.includes('A user with this email address has already been registered')) {
+                            detailedMessage = 'Já existe um usuário cadastrado com este e-mail.';
+                        } else if (detailedMessage.includes('duplicate key value violates unique constraint "designers_username_key"')) {
+                            detailedMessage = 'Este nome de usuário já está em uso.';
+                        }
+                    }
+                    return { success: false, message: `Erro do servidor: ${detailedMessage}` };
+
+                } catch (e) {
+                    const textError = await error.context.text();
+                    return { success: false, message: `Erro do servidor (status ${error.context.status}): ${textError}` };
+                }
             }
-          }
-          
-          console.error('Detalhes do erro da função:', detailedMessage);
-          return { success: false, message: `Erro do servidor: ${detailedMessage}` };
-
-        } catch (e) {
-          const textError = await error.context.text();
-          return { success: false, message: `Erro do servidor (status ${error.context.status}): ${textError}` };
+            return { success: false, message: `Erro de comunicação: ${error.message}` };
         }
-      }
-      
-      return { success: false, message: `Erro de comunicação: ${error.message}` };
-    }
-    
-    if (data.error) {
-        console.error('Erro na criação do designer (payload):', data.error);
-        return { success: false, message: data.details || data.error };
-    }
+        
+        if (data.error) {
+            console.error('Erro na criação do designer (payload):', data.error);
+            return { success: false, message: data.details || data.error };
+        }
 
-    setDesigners(prev => [data, ...prev].sort((a,b) => a.name.localeCompare(b.name)));
-    return { success: true, message: 'Designer criado com sucesso!' };
+        setDesigners(prev => [data, ...prev].sort((a,b) => a.name.localeCompare(b.name)));
+        return { success: true, message: 'Designer criado com sucesso!' };
+
+    } catch (e: any) {
+        // This catch block will handle the rejected timeoutPromise
+        console.error('Erro inesperado (possivelmente timeout) ao adicionar designer:', e);
+        return { success: false, message: e.message || 'Ocorreu um erro inesperado.' };
+    }
   };
 
-  const updateDesigner = async (updatedDesigner: Designer): Promise<{ success: boolean; message: string }> => {
-    const { id, name, role, type, salary } = updatedDesigner;
-    const updatePayload = {
-      name,
-      role,
-      type,
-      salary: type === DesignerType.Fixed ? salary : null,
-    };
-
-    const { data, error } = await supabase
-      .from('designers')
-      .update(updatePayload)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Erro ao atualizar designer:', error.message);
-      return { success: false, message: `Erro ao atualizar: ${error.message}` };
-    }
-
-    if (data) {
-      setDesigners(prev => prev.map(d => (d.id === data.id ? data : d)));
-    }
-    return { success: true, message: 'Designer atualizado com sucesso!' };
+  const updateDesigner = async (updatedDesigner: Designer) => {
+    const { data, error } = await supabase.from('designers').update(updatedDesigner).eq('id', updatedDesigner.id).select().single();
+    if (error) console.error('Erro ao atualizar designer:', error);
+    else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
   };
   
   const addArtist = async (artistData: Omit<Artist, 'id'>) => {
