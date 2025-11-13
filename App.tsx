@@ -57,54 +57,52 @@ const App: React.FC = () => {
   const [submissionWindow, setSubmissionWindow] = useLocalStorage<{isOpen: boolean; deadline: string | null}>('submissionWindow', { isOpen: false, deadline: null });
 
   const fetchData = async (userId: string) => {
-    try {
-      const [designersRes, tasksRes, artistsRes, advancesRes] = await Promise.all([
-        supabase.from('designers').select('*'),
-        supabase.from('tasks').select('*'),
-        supabase.from('artists').select('*'),
-        supabase.from('advances').select('*'),
-      ]);
+    // This function will throw on error, and the caller is responsible for the try/catch block.
+    const [designersRes, tasksRes, artistsRes, advancesRes] = await Promise.all([
+      supabase.from('designers').select('*'),
+      supabase.from('tasks').select('*'),
+      supabase.from('artists').select('*'),
+      supabase.from('advances').select('*'),
+    ]);
 
-      if (designersRes.error) throw designersRes.error;
-      if (tasksRes.error) throw tasksRes.error;
-      if (artistsRes.error) throw artistsRes.error;
-      if (advancesRes.error) throw advancesRes.error;
-      
-      const allDesigners: Designer[] = designersRes.data;
-      const currentUserProfile = allDesigners.find(d => d.auth_user_id === userId);
+    if (designersRes.error) throw designersRes.error;
+    if (tasksRes.error) throw tasksRes.error;
+    if (artistsRes.error) throw artistsRes.error;
+    if (advancesRes.error) throw advancesRes.error;
+    
+    const allDesigners: Designer[] = designersRes.data;
+    const currentUserProfile = allDesigners.find(d => d.auth_user_id === userId);
 
-      setDesigners(allDesigners);
-      setTasks(tasksRes.data);
-      setArtists(artistsRes.data);
-      setAdvances(advancesRes.data);
-      
-      if (currentUserProfile) {
-        setLoggedInUser(currentUserProfile);
-        setLoginProfileError(''); // Clear error on successful fetch
-        setLoading(false);
-      } else {
-        const errorMsg = "Login autenticado, mas o perfil do usuário não foi encontrado no banco de dados. O User ID na tabela de Autenticação não corresponde a nenhum registro na tabela 'designers'. Verifique se o ID foi copiado corretamente.";
-        console.error(errorMsg);
-        setLoginProfileError(errorMsg); // Set specific error message
-        await supabase.auth.signOut(); // Sign out the user
-        setLoading(false);
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || JSON.stringify(error, null, 2);
-      console.error("Erro ao buscar dados:", errorMessage);
-       setLoginProfileError(`Erro ao buscar dados: ${errorMessage}. Verifique as permissões de acesso (RLS) no Supabase.`);
-      await supabase.auth.signOut();
-      setLoading(false);
+    setDesigners(allDesigners);
+    setTasks(tasksRes.data);
+    setArtists(artistsRes.data);
+    setAdvances(advancesRes.data);
+    
+    if (currentUserProfile) {
+      setLoggedInUser(currentUserProfile);
+      setLoginProfileError(''); // Clear error on successful fetch
+    } else {
+      const errorMsg = "Login autenticado, mas o perfil do usuário não foi encontrado no banco de dados. O User ID na tabela de Autenticação não corresponde a nenhum registro na tabela 'designers'. Verifique se o ID foi copiado corretamente.";
+      console.error(errorMsg);
+      setLoginProfileError(errorMsg); // Set specific error message
+      await supabase.auth.signOut(); // Sign out the user
     }
   };
 
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await fetchData(session.user.id);
-      } else {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetchData(session.user.id);
+        }
+      } catch (error: any) {
+        const errorMessage = error?.message || JSON.stringify(error, null, 2);
+        console.error("Erro ao buscar dados na verificação de sessão:", errorMessage);
+        setLoginProfileError(`Erro ao buscar dados: ${errorMessage}. Verifique as permissões de acesso (RLS) no Supabase.`);
+        await supabase.auth.signOut();
+      } finally {
         setLoading(false);
       }
     };
@@ -117,8 +115,12 @@ const App: React.FC = () => {
         try {
           await fetchData(session.user.id);
         } catch (error) {
-          console.error("Error during onAuthStateChange fetchData:", error);
+          const errorMessage = (error as Error)?.message || JSON.stringify(error, null, 2);
+          console.error("Erro durante onAuthStateChange fetchData:", errorMessage);
+          setLoginProfileError(`Erro ao carregar dados do usuário: ${errorMessage}`);
+          await supabase.auth.signOut(); // Log out on critical data fetch failure
           setLoggedInUser(null);
+        } finally {
           setLoading(false);
         }
       } else {

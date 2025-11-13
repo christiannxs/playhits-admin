@@ -12,14 +12,15 @@ const SqlLabView: React.FC = () => {
 
   const ai = useMemo(() => {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
+    if (!apiKey || apiKey === 'COLE_A_SUA_CHAVE_AQUI') {
       console.error("Gemini API key not found. Please set the API_KEY environment variable.");
       return null;
     }
     try {
       return new GoogleGenAI({ apiKey });
-    } catch (error) {
-      console.error("Error initializing GoogleGenAI:", error);
+    } catch (e) {
+      console.error("Error initializing GoogleGenAI:", e);
+      setError(`Falha ao inicializar a API do Gemini. Verifique o console para mais detalhes.`);
       return null;
     }
   }, []);
