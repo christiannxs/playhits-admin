@@ -80,19 +80,20 @@ const App: React.FC = () => {
       if (currentUserProfile) {
         setLoggedInUser(currentUserProfile);
         setLoginProfileError(''); // Clear error on successful fetch
+        setLoading(false);
       } else {
         const errorMsg = "Login autenticado, mas o perfil do usuário não foi encontrado no banco de dados. O User ID na tabela de Autenticação não corresponde a nenhum registro na tabela 'designers'. Verifique se o ID foi copiado corretamente.";
         console.error(errorMsg);
         setLoginProfileError(errorMsg); // Set specific error message
         await supabase.auth.signOut(); // Sign out the user
+        setLoading(false);
       }
     } catch (error: any) {
       const errorMessage = error?.message || JSON.stringify(error, null, 2);
       console.error("Erro ao buscar dados:", errorMessage);
        setLoginProfileError(`Erro ao buscar dados: ${errorMessage}. Verifique as permissões de acesso (RLS) no Supabase.`);
       await supabase.auth.signOut();
-    } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
