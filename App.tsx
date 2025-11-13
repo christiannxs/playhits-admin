@@ -114,7 +114,13 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setLoading(true);
-        await fetchData(session.user.id);
+        try {
+          await fetchData(session.user.id);
+        } catch (error) {
+          console.error("Error during onAuthStateChange fetchData:", error);
+          setLoggedInUser(null);
+          setLoading(false);
+        }
       } else {
         setLoggedInUser(null);
         setLoading(false);
