@@ -134,15 +134,14 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
     setLoginProfileError(''); // Clear previous profile errors on a new attempt
-    setLoading(true);
     const email = `${username.toLowerCase()}@playhits.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) {
       console.error('Erro no login:', error.message);
-      setLoading(false);
       return { success: false, message: 'Usuário ou senha inválidos.' };
     }
-    // On success, onAuthStateChange will trigger fetchData, which will eventually set loading to false.
+    // On success, onAuthStateChange will trigger fetchData. 
+    // The LoginView's internal loading state will handle the button, and onAuthStateChange will handle the app's loading screen.
     return { success: true, message: '' };
   };
 
