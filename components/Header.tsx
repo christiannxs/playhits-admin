@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ViewType, Designer } from '../types';
-import { ChartPieIcon, ClipboardDocumentListIcon, PresentationChartBarIcon, UsersIcon, LogoutIcon, MusicNoteIcon } from './icons/Icons';
+import { ChartPieIcon, ClipboardDocumentListIcon, PresentationChartBarIcon, UsersIcon, LogoutIcon, MusicNoteIcon, CodeBracketIcon } from './icons/Icons';
 
 
 interface HeaderProps {
@@ -47,6 +47,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
     { view: 'reports', label: 'Relatórios', icon: <PresentationChartBarIcon />, roles: ['Diretor de Arte', 'Financeiro'] },
     { view: 'designers', label: 'Designers', icon: <UsersIcon />, roles: ['Diretor de Arte'] },
     { view: 'artists', label: 'Artistas', icon: <MusicNoteIcon />, roles: ['Diretor de Arte'] },
+    { view: 'sql', label: 'SQL Lab', icon: <CodeBracketIcon />, roles: ['Diretor de Arte'] },
   ];
   
   const navItems = allNavItems.filter(item => loggedInUser && item.roles.includes(loggedInUser.role));

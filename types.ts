@@ -38,7 +38,7 @@ export interface Advance {
   description: string;
 }
 
-export type ViewType = 'dashboard' | 'tasks' | 'reports' | 'designers' | 'artists';
+export type ViewType = 'dashboard' | 'tasks' | 'reports' | 'designers' | 'artists' | 'sql';
 
 export type MediaType = {
   name: string;

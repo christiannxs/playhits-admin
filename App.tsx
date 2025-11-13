@@ -9,6 +9,7 @@ import ReportsView from './components/ReportsView';
 import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
 import ArtistsView from './components/ArtistsView';
+import SqlLabView from './components/SqlLabView';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { supabase, configurationError } from './lib/supabaseClient';
 import { FunctionsHttpError } from '@supabase/supabase-js';
@@ -112,6 +113,7 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
+        setLoading(true);
         await fetchData(session.user.id);
       } else {
         setLoggedInUser(null);
@@ -132,12 +134,15 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
     setLoginProfileError(''); // Clear previous profile errors on a new attempt
+    setLoading(true);
     const email = `${username.toLowerCase()}@playhits.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) {
       console.error('Erro no login:', error.message);
+      setLoading(false);
       return { success: false, message: 'Usuário ou senha inválidos.' };
     }
+    // On success, onAuthStateChange will trigger fetchData, which will eventually set loading to false.
     return { success: true, message: '' };
   };
 
@@ -310,6 +315,12 @@ const App: React.FC = () => {
             return null;
          }
         return <ArtistsView artists={artists} onAddArtist={addArtist} onUpdateArtist={updateArtist} onDeleteArtist={deleteArtist} />;
+      case 'sql':
+        if (!isDirector) {
+          setActiveView('dashboard');
+          return null;
+        }
+        return <SqlLabView />;
       default:
         setActiveView('dashboard');
         return null;
