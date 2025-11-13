@@ -114,6 +114,7 @@ const App: React.FC = () => {
         await fetchData(session.user.id);
       } else {
         setLoggedInUser(null);
+        setLoading(false);
       }
     });
 
