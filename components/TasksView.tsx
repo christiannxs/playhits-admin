@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Designer, Task, Artist } from '../types';
+import { Designer, Task, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
@@ -8,9 +9,8 @@ import { PlusIcon, ClockIcon, PencilIcon, TrashIcon } from './icons/Icons';
 interface TasksViewProps {
   tasks: Task[];
   designers: Designer[];
-  artists: Artist[];
   onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => void;
-  onUpdateTask: (taskData: Task) => void;
+  onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
   loggedInUser: Designer;
   submissionWindowOpen: boolean;
@@ -39,7 +39,6 @@ const TaskTable: React.FC<{
                   <tr key={task.id} className="border-b border-base-300 hover:bg-base-100/50 last:border-b-0">
                       <td className="p-4 align-top">
                           <p className="font-semibold text-base-content">{task.artist}</p>
-                          <p className="text-sm text-base-content-secondary">{task.description}</p>
                           <p className="text-xs text-base-content-secondary mt-1">
                               <span className="font-medium">Mídia:</span> {task.media_type} | <span className="font-medium">Solicitante:</span> {task.social_media}
                           </p>
@@ -67,14 +66,13 @@ const TaskTable: React.FC<{
 );
 
 
-const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddTask, onUpdateTask, onDeleteTask, loggedInUser, submissionWindowOpen }) => {
+const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUpdateTask, onDeleteTask, loggedInUser, submissionWindowOpen }) => {
   const isDirector = loggedInUser.role === 'Diretor de Arte';
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> = { 
-    description: '', 
     designer_id: isDirector ? '' : loggedInUser.id, 
     media_type: '', 
     due_date: '', 
@@ -96,7 +94,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
   const openEditModal = (task: Task) => {
     setEditingTask(task);
     setFormData({
-      description: task.description,
       designer_id: task.designer_id,
       media_type: task.media_type,
       due_date: task.due_date.split('T')[0],
@@ -119,15 +116,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.description && formData.designer_id && formData.media_type && formData.due_date && formData.artist && formData.social_media) {
+    if (formData.designer_id && formData.media_type && formData.due_date && formData.artist && formData.social_media) {
+      const payload = {
+        ...formData,
+        value: MEDIA_PRICES[formData.media_type]?.price || 0,
+      };
+
       if (editingTask) {
-        onUpdateTask({
-          ...editingTask,
-          ...formData,
-          value: MEDIA_PRICES[formData.media_type]?.price || 0,
-        });
+        onUpdateTask(editingTask.id, payload);
       } else {
-        onAddTask(formData);
+        onAddTask(payload);
       }
       closeModal();
     }
@@ -229,10 +227,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Artista</label>
-             <select value={formData.artist} onChange={e => setFormData({ ...formData, artist: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
-              <option value="">Selecione um artista</option>
-              {artists.sort((a,b) => a.name.localeCompare(b.name)).map(artist => <option key={artist.id} value={artist.name}>{artist.name}</option>)}
-            </select>
+            <input 
+              type="text" 
+              value={formData.artist} 
+              onChange={e => setFormData({ ...formData, artist: e.target.value })} 
+              placeholder="Nome do artista ou banda"
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required 
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Social Media que solicitou</label>
@@ -253,10 +255,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, artists, onAddT
               <option value="">Selecione um tipo</option>
               {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Descrição do que foi feito</label>
-            <input type="text" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>

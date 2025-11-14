@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, DesignerType, Advance } from '../types';
 import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory } from '../utils/dateUtils';
@@ -188,7 +189,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                         <tbody>
                           {completedTasks.map(task => (
                             <tr key={task.id} className="border-b border-base-300/50">
-                              <td className="p-2">{task.description} ({task.media_type})<br/><span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span></td>
+                              <td className="p-2">{task.media_type}<br/><span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span></td>
                               <td className="p-2">{task.artist}</td>
                               <td className="p-2 text-right">{formatCurrency(task.value)}</td>
                             </tr>

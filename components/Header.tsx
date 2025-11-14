@@ -46,7 +46,6 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
     { view: 'tasks', label: 'Demandas', icon: <ClipboardDocumentListIcon />, roles: ['Diretor de Arte', 'Designer', 'Freelancer'] },
     { view: 'reports', label: 'Relatórios', icon: <PresentationChartBarIcon />, roles: ['Diretor de Arte', 'Financeiro'] },
     { view: 'designers', label: 'Designers', icon: <UsersIcon />, roles: ['Diretor de Arte'] },
-    { view: 'artists', label: 'Artistas', icon: <MusicNoteIcon />, roles: ['Diretor de Arte'] },
     { view: 'sql', label: 'SQL Lab', icon: <CodeBracketIcon />, roles: ['Diretor de Arte'] },
   ];
   

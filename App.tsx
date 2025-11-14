@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Designer, Task, ViewType, Artist, Advance } from './types';
+import { Designer, Task, ViewType, Advance, UpdateTaskPayload } from './types';
 import { MEDIA_PRICES } from './constants';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
@@ -8,9 +8,7 @@ import TasksView from './components/TasksView';
 import ReportsView from './components/ReportsView';
 import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
-import ArtistsView from './components/ArtistsView';
 import SqlLabView from './components/SqlLabView';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { supabase, configurationError } from './lib/supabaseClient';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
@@ -49,107 +47,122 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [designers, setDesigners] = useState<Designer[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [artists, setArtists] = useState<Artist[]>([]);
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [loggedInUser, setLoggedInUser] = useState<Designer | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginProfileError, setLoginProfileError] = useState('');
-  const [submissionWindow, setSubmissionWindow] = useLocalStorage<{isOpen: boolean; deadline: string | null}>('submissionWindow', { isOpen: false, deadline: null });
+  const [submissionWindow, setSubmissionWindow] = useState<{isOpen: boolean; deadline: string | null}>({ isOpen: false, deadline: null });
 
-  const fetchData = async (userId: string) => {
-    // This function will throw on error, and the caller is responsible for the try/catch block.
-    const [designersRes, tasksRes, artistsRes, advancesRes] = await Promise.all([
-      supabase.from('designers').select('*'),
-      supabase.from('tasks').select('*'),
-      supabase.from('artists').select('*'),
-      supabase.from('advances').select('*'),
-    ]);
-
-    if (designersRes.error) throw designersRes.error;
-    if (tasksRes.error) throw tasksRes.error;
-    if (artistsRes.error) throw artistsRes.error;
-    if (advancesRes.error) throw advancesRes.error;
-    
-    const allDesigners: Designer[] = designersRes.data;
-    const currentUserProfile = allDesigners.find(d => d.auth_user_id === userId);
-
-    setDesigners(allDesigners);
-    setTasks(tasksRes.data);
-    setArtists(artistsRes.data);
-    setAdvances(advancesRes.data);
-    
-    if (currentUserProfile) {
-      setLoggedInUser(currentUserProfile);
-      setLoginProfileError(''); // Clear error on successful fetch
-    } else {
-      const errorMsg = "Login autenticado, mas o perfil do usuário não foi encontrado no banco de dados. O User ID na tabela de Autenticação não corresponde a nenhum registro na tabela 'designers'. Verifique se o ID foi copiado corretamente.";
-      console.error(errorMsg);
-      setLoginProfileError(errorMsg); // Set specific error message
-      await supabase.auth.signOut(); // Sign out the user
-    }
-  };
-
-
+  // Lógica de inicialização e gerenciamento de estado global da janela de envio.
   useEffect(() => {
-    const checkSession = async () => {
+    const loadSessionAndData = async () => {
+      setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
+
         if (session) {
-          await fetchData(session.user.id);
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+          if (authError || !user) {
+            await supabase.auth.signOut();
+            setLoggedInUser(null);
+            return;
+          }
+
+          // Busca a configuração global da janela de envio do banco de dados.
+          const { data: config, error: configError } = await supabase
+            .from('app_config')
+            .select('submission_is_open, submission_deadline')
+            .eq('id', 1)
+            .single();
+
+          if (configError) {
+            console.error("Erro ao carregar configuração do app:", configError);
+          } else if (config) {
+            setSubmissionWindow({ isOpen: config.submission_is_open, deadline: config.submission_deadline });
+          }
+
+          const { data: userProfile, error: profileError } = await supabase
+            .from('designers')
+            .select('*')
+            .eq('auth_user_id', user.id)
+            .single();
+          
+          if (profileError || !userProfile) {
+            setLoginProfileError('Seu perfil não foi encontrado. A sessão será encerrada.');
+            await supabase.auth.signOut();
+            setLoggedInUser(null);
+            return;
+          }
+
+          setLoggedInUser(userProfile);
+          setLoginProfileError('');
+          
+          const [designersRes, tasksRes, advancesRes] = await Promise.all([
+            supabase.from('designers').select('*'),
+            supabase.from('tasks').select('*'),
+            supabase.from('advances').select('*'),
+          ]);
+
+          if (designersRes.error) throw designersRes.error;
+          if (tasksRes.error) throw tasksRes.error;
+          if (advancesRes.error) throw advancesRes.error;
+          
+          setDesigners(designersRes.data);
+          setTasks(tasksRes.data);
+          setAdvances(advancesRes.data);
+
+        } else {
+          setLoggedInUser(null);
+          setDesigners([]);
+          setTasks([]);
+          setAdvances([]);
         }
-      } catch (error: any) {
-        const errorMessage = error?.message || JSON.stringify(error, null, 2);
-        console.error("Erro ao buscar dados na verificação de sessão:", errorMessage);
-        setLoginProfileError(`Erro ao buscar dados: ${errorMessage}. Verifique as permissões de acesso (RLS) no Supabase.`);
+      } catch (error) {
+        console.error("Erro crítico durante o carregamento da sessão:", error);
         await supabase.auth.signOut();
+        setLoggedInUser(null);
       } finally {
         setLoading(false);
       }
     };
-    
-    checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        setLoading(true);
-        try {
-          await fetchData(session.user.id);
-        } catch (error) {
-          const errorMessage = (error as Error)?.message || JSON.stringify(error, null, 2);
-          console.error("Erro durante onAuthStateChange fetchData:", errorMessage);
-          setLoginProfileError(`Erro ao carregar dados do usuário: ${errorMessage}`);
-          await supabase.auth.signOut(); // Log out on critical data fetch failure
-          setLoggedInUser(null);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoggedInUser(null);
-        setLoading(false);
-      }
+    loadSessionAndData();
+
+    // Listener para mudanças de autenticação (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadSessionAndData();
     });
 
-    if (submissionWindow.isOpen && submissionWindow.deadline) {
-      if (new Date() > new Date(submissionWindow.deadline)) {
-        setSubmissionWindow({ isOpen: false, deadline: null });
-      }
-    }
+    // Listener de Realtime para a tabela de configuração global.
+    // Atualiza a UI de todos os clientes instantaneamente quando um diretor altera o estado.
+    const configChannel = supabase
+      .channel('app_config_changes')
+      .on<any>(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'app_config', filter: 'id=eq.1' },
+        (payload) => {
+          const { submission_is_open, submission_deadline } = payload.new;
+          setSubmissionWindow({ isOpen: submission_is_open, deadline: submission_deadline });
+        }
+      )
+      .subscribe();
 
     return () => {
       subscription?.unsubscribe();
+      supabase.removeChannel(configChannel);
     };
   }, []);
+  
 
   const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
-    setLoginProfileError(''); // Clear previous profile errors on a new attempt
+    setLoginProfileError('');
     const email = `${username.toLowerCase()}@playhits.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) {
       console.error('Erro no login:', error.message);
       return { success: false, message: 'Usuário ou senha inválidos.' };
     }
-    // On success, onAuthStateChange will trigger fetchData. 
-    // The LoginView's internal loading state will handle the button, and onAuthStateChange will handle the app's loading screen.
     return { success: true, message: '' };
   };
 
@@ -158,33 +171,97 @@ const App: React.FC = () => {
     setLoggedInUser(null);
   };
 
-  const toggleSubmissionWindow = useCallback(() => {
-    setSubmissionWindow(prev => {
-        if (prev.isOpen) {
-            return { isOpen: false, deadline: null };
-        } else {
-            const now = new Date();
-            const day = now.getDay(); // 0 = Sunday, 5 = Friday
-            const diff = day > 5 ? 6 : 5 - day; // days until this week's Friday
-            const deadline = new Date(now);
-            deadline.setDate(now.getDate() + diff);
-            deadline.setHours(16, 0, 0, 0);
-            return { isOpen: true, deadline: deadline.toISOString() };
-        }
-    });
-  }, [setSubmissionWindow]);
+  const toggleSubmissionWindow = useCallback(async () => {
+    const currentlyOpen = submissionWindow.isOpen;
+    
+    let newIsOpen: boolean;
+    let newDeadline: string | null;
+
+    if (currentlyOpen) {
+        newIsOpen = false;
+        newDeadline = null;
+    } else {
+        newIsOpen = true;
+        const now = new Date();
+        const day = now.getDay();
+        const diff = day > 5 ? 6 : 5 - day;
+        const deadline = new Date(now);
+        deadline.setDate(now.getDate() + diff);
+        deadline.setHours(16, 0, 0, 0);
+        newDeadline = deadline.toISOString();
+    }
+    
+    const { error } = await supabase
+      .from('app_config')
+      .update({ submission_is_open: newIsOpen, submission_deadline: newDeadline })
+      .eq('id', 1);
+    
+    if (error) {
+        console.error("Erro ao atualizar o status de envio:", error);
+        alert("Falha ao alterar o status de envio. Verifique se você tem permissão e tente novamente.");
+    }
+  }, [submissionWindow.isOpen]);
 
   const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => {
-    const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
-    const { data, error } = await supabase.from('tasks').insert({ ...taskData, value }).select().single();
-    if (error) console.error('Erro ao adicionar demanda:', error);
-    else if (data) setTasks(prev => [data, ...prev]);
+    try {
+      const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
+      const { data, error } = await supabase.from('tasks').insert({ ...taskData, value }).select().single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setTasks(prev => [data, ...prev]);
+      }
+    } catch (error: any) {
+      console.error('Erro detalhado ao adicionar demanda:', error);
+      let errorMessage = 'Ocorreu um erro inesperado.';
+      if (error && typeof error === 'object' && 'message' in error) {
+          const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+          errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
+      } else {
+          try {
+            errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
+          } catch {
+            errorMessage = `Ocorreu um erro não-JSON: ${error}`;
+          }
+      }
+      alert(`Falha ao adicionar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
+    }
   };
 
-  const updateTask = async (updatedTask: Task) => {
-    const { data, error } = await supabase.from('tasks').update(updatedTask).eq('id', updatedTask.id).select().single();
-    if (error) console.error('Erro ao atualizar demanda:', error);
-    else if (data) setTasks(prev => prev.map(task => task.id === data.id ? data : task));
+  const updateTask = async (taskId: string, updateData: UpdateTaskPayload) => {
+    try {
+        const payload = { ...updateData };
+        if (payload.media_type) {
+            payload.value = MEDIA_PRICES[payload.media_type]?.price || 0;
+        }
+
+        const { data, error } = await supabase.from('tasks').update(payload).eq('id', taskId).select().single();
+        
+        if (error) {
+            throw error;
+        }
+
+        if (data) {
+            setTasks(prev => prev.map(task => task.id === data.id ? data : task));
+        }
+    } catch (error: any) {
+        console.error('Erro detalhado ao atualizar demanda:', error);
+        let errorMessage = 'Ocorreu um erro inesperado.';
+        if (error && typeof error === 'object' && 'message' in error) {
+            const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+            errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
+        } else {
+             try {
+                errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
+              } catch {
+                errorMessage = `Ocorreu um erro não-JSON: ${error}`;
+              }
+        }
+        alert(`Falha ao atualizar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura da tabela 'tasks' no Supabase corresponde ao que o aplicativo espera.`);
+    }
   };
 
   const deleteTask = async (taskId: string) => {
@@ -194,7 +271,7 @@ const App: React.FC = () => {
   };
 
   const addDesigner = async (designerData: any): Promise<{ success: boolean; message: string }> => {
-    const FUNCTION_TIMEOUT = 20000; // 20 seconds timeout
+    const FUNCTION_TIMEOUT = 20000;
 
     try {
         const functionPromise = supabase.functions.invoke('create-user-and-profile', {
@@ -202,10 +279,9 @@ const App: React.FC = () => {
         });
 
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('A operação demorou muito para responder. Verifique sua conexão ou o status do servidor (Edge Function).')), FUNCTION_TIMEOUT)
+            setTimeout(() => reject(new Error('A operação demou muito para responder. Verifique sua conexão ou o status do servidor (Edge Function).')), FUNCTION_TIMEOUT)
         );
 
-        // Race the function call against the timeout
         const result: { data: any; error: any } = await Promise.race([functionPromise, timeoutPromise as any]);
         
         const { data, error } = result;
@@ -244,7 +320,6 @@ const App: React.FC = () => {
         return { success: true, message: 'Designer criado com sucesso!' };
 
     } catch (e: any) {
-        // This catch block will handle the rejected timeoutPromise
         console.error('Erro inesperado (possivelmente timeout) ao adicionar designer:', e);
         return { success: false, message: e.message || 'Ocorreu um erro inesperado.' };
     }
@@ -256,26 +331,6 @@ const App: React.FC = () => {
     else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
   };
   
-  const addArtist = async (artistData: Omit<Artist, 'id'>) => {
-    const { data, error } = await supabase.from('artists').insert(artistData).select().single();
-    if (error) console.error('Erro ao adicionar artista:', error);
-    else if (data) setArtists(prev => [data, ...prev]);
-  };
-
-  const updateArtist = async (updatedArtist: Artist) => {
-    const { data, error } = await supabase.from('artists').update(updatedArtist).eq('id', updatedArtist.id).select().single();
-    if (error) console.error('Erro ao atualizar artista:', error);
-    else if (data) setArtists(prev => prev.map(a => a.id === data.id ? data : a));
-  };
-
-  const deleteArtist = async (artistId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este artista?')) {
-      const { error } = await supabase.from('artists').delete().eq('id', artistId);
-      if (error) console.error('Erro ao deletar artista:', error);
-      else setArtists(prev => prev.filter(a => a.id !== artistId));
-    }
-  };
-
   const addAdvance = async (advanceData: Omit<Advance, 'id'>) => {
     const { data, error } = await supabase.from('advances').insert(advanceData).select().single();
     if (error) console.error('Erro ao adicionar adiantamento:', error);
@@ -303,7 +358,7 @@ const App: React.FC = () => {
           setActiveView('dashboard');
           return null;
         }
-        return <TasksView tasks={tasks} designers={designers} artists={artists} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} submissionWindowOpen={submissionWindow.isOpen} />;
+        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} submissionWindowOpen={submissionWindow.isOpen} />;
       case 'reports':
         if (!isDirector && !isFinancial) {
             setActiveView('dashboard');
@@ -316,12 +371,6 @@ const App: React.FC = () => {
             return null;
          }
         return <DesignersView designers={designers} tasks={tasks} onAddDesigner={addDesigner} onUpdateDesigner={updateDesigner} advances={advances} onAddAdvance={addAdvance} onDeleteAdvance={deleteAdvance} />;
-       case 'artists':
-         if (!isDirector) {
-            setActiveView('dashboard');
-            return null;
-         }
-        return <ArtistsView artists={artists} onAddArtist={addArtist} onUpdateArtist={updateArtist} onDeleteArtist={deleteArtist} />;
       case 'sql':
         if (!isDirector) {
           setActiveView('dashboard');

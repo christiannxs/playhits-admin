@@ -10,14 +10,11 @@ const SqlLabView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // FIX: Per coding guidelines, assume process.env.API_KEY is available and valid.
+  // The explicit check for the API key has been removed.
   const ai = useMemo(() => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === 'COLE_A_SUA_CHAVE_AQUI') {
-      console.error("Gemini API key not found. Please set the API_KEY environment variable.");
-      return null;
-    }
     try {
-      return new GoogleGenAI({ apiKey });
+      return new GoogleGenAI({ apiKey: process.env.API_KEY });
     } catch (e) {
       console.error("Error initializing GoogleGenAI:", e);
       setError(`Falha ao inicializar a API do Gemini. Verifique o console para mais detalhes.`);
@@ -27,8 +24,7 @@ const SqlLabView: React.FC = () => {
 
   const dbSchema = `
     - Tabela: designers (id, auth_user_id, name, username, type, role, salary)
-    - Tabela: tasks (id, description, designer_id, media_type, due_date, created_at, value, artist, social_media)
-    - Tabela: artists (id, name)
+    - Tabela: tasks (id, designer_id, media_type, due_date, created_at, value, artist, social_media)
     - Tabela: advances (id, designer_id, amount, date, description)
   `;
 
@@ -122,10 +118,11 @@ const SqlLabView: React.FC = () => {
         <p className="text-sm">Esta é uma ferramenta avançada. Consultas malformadas ou muito complexas podem impactar a performance do banco de dados. Use com cautela. A execução de consultas requer uma função `execute_readonly_sql` no Supabase.</p>
       </div>
       
+      {/* FIX: Updated the UI message to be more generic and not prompt the user about API key configuration, adhering to the guidelines. */}
       {!ai && (
         <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg">
-            <p className="font-bold">Configuração da API Gemini necessária</p>
-            <p className="text-sm">A funcionalidade de geração de SQL a partir de linguagem natural requer uma API Key do Google AI Studio. Configure a variável de ambiente `API_KEY` para habilitar este recurso.</p>
+            <p className="font-bold">Recurso de IA Indisponível</p>
+            <p className="text-sm">A funcionalidade de geração de SQL a partir de linguagem natural não está disponível.</p>
         </div>
       )}
 

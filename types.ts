@@ -1,3 +1,4 @@
+
 export enum DesignerType {
   Fixed = 'fixed',
   Freelancer = 'freelancer'
@@ -15,7 +16,6 @@ export interface Designer {
 
 export interface Task {
   id: string;
-  description: string;
   designer_id: string;
   media_type: string;
   due_date: string; // YYYY-MM-DD
@@ -25,10 +25,9 @@ export interface Task {
   social_media: string;
 }
 
-export interface Artist {
-  id: string;
-  name: string;
-}
+// Define um tipo específico para os dados que podem ser atualizados em uma tarefa.
+export type UpdateTaskPayload = Pick<Task, 'designer_id' | 'media_type' | 'due_date' | 'artist' | 'social_media' | 'value'>;
+
 
 export interface Advance {
   id: string;
@@ -38,7 +37,7 @@ export interface Advance {
   description: string;
 }
 
-export type ViewType = 'dashboard' | 'tasks' | 'reports' | 'designers' | 'artists' | 'sql';
+export type ViewType = 'dashboard' | 'tasks' | 'reports' | 'designers' | 'sql';
 
 export type MediaType = {
   name: string;
