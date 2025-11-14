@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, UpdateTaskPayload } from '../types';
-import { MEDIA_PRICES } from '../constants';
+import { MEDIA_PRICES, ARTIST_LIST } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
 import { PlusIcon, ClockIcon, PencilIcon, TrashIcon } from './icons/Icons';
@@ -227,14 +226,17 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Artista</label>
-            <input 
-              type="text" 
-              value={formData.artist} 
-              onChange={e => setFormData({ ...formData, artist: e.target.value })} 
-              placeholder="Nome do artista ou banda"
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
-              required 
-            />
+            <select
+              value={formData.artist}
+              onChange={e => setFormData({ ...formData, artist: e.target.value })}
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+              required
+            >
+              <option value="">Selecione um artista</option>
+              {ARTIST_LIST.sort((a, b) => a.localeCompare(b)).map(artist => (
+                <option key={artist} value={artist}>{artist}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Social Media que solicitou</label>

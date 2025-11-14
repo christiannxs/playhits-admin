@@ -42,3 +42,18 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
     price: 50.00 
   },
 };
+
+export const ARTIST_LIST: string[] = [
+  'Mara Pavanelly',
+  'Laninha show',
+  'Walfredo',
+  'A dama',
+  'Renno',
+  'Kelly ollliveira',
+  'Ju Moura',
+  'Felipe grilo',
+  'Kelvy Pablo',
+  'Briola',
+  'Felipão',
+  'Cesinha Garcia',
+];

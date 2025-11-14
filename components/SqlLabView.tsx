@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { supabase } from '../lib/supabaseClient';
@@ -29,8 +30,14 @@ const SqlLabView: React.FC = () => {
   `;
 
   const handleGenerateSql = async () => {
-    if (!naturalQuery || !ai) {
-        setError('Por favor, insira uma pergunta e certifique-se que a API Key está configurada.');
+    // FIX: Per coding guidelines, do not prompt the user about API key configuration.
+    // The button to call this function is disabled if `ai` is null, so this is just a safeguard.
+    if (!ai) {
+        setError('A funcionalidade de IA não está disponível.');
+        return;
+    }
+    if (!naturalQuery) {
+        setError('Por favor, insira uma pergunta.');
         return;
     }
     setIsLoading(true);

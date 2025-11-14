@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Designer, Task, ViewType, Advance, UpdateTaskPayload } from './types';
 import { MEDIA_PRICES } from './constants';
@@ -138,7 +139,9 @@ const App: React.FC = () => {
     // Atualiza a UI de todos os clientes instantaneamente quando um diretor altera o estado.
     const configChannel = supabase
       .channel('app_config_changes')
-      .on<any>(
+      // FIX: The `.on()` method for Supabase realtime channels is not generic.
+      // The type argument has been removed to fix the "Untyped function calls may not accept type arguments" error.
+      .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'app_config', filter: 'id=eq.1' },
         (payload) => {
