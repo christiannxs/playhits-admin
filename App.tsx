@@ -53,6 +53,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loginProfileError, setLoginProfileError] = useState('');
   const [submissionWindow, setSubmissionWindow] = useState<{isOpen: boolean; deadline: string | null}>({ isOpen: false, deadline: null });
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Lógica de inicialização e gerenciamento de estado global da janela de envio.
   useEffect(() => {
@@ -201,11 +202,12 @@ const App: React.FC = () => {
     
     if (error) {
         console.error("Erro ao atualizar o status de envio:", error);
-        alert("Falha ao alterar o status de envio. Verifique se você tem permissão e tente novamente.");
+        setApiError("Falha ao alterar o status de envio. Verifique se você tem permissão e tente novamente.");
     }
   }, [submissionWindow.isOpen]);
 
   const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => {
+    setApiError(null);
     try {
       const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
       const { data, error } = await supabase.from('tasks').insert({ ...taskData, value }).select().single();
@@ -230,11 +232,12 @@ const App: React.FC = () => {
             errorMessage = `Ocorreu um erro não-JSON: ${error}`;
           }
       }
-      alert(`Falha ao adicionar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
+      setApiError(`Falha ao adicionar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
     }
   };
 
   const updateTask = async (taskId: string, updateData: UpdateTaskPayload) => {
+    setApiError(null);
     try {
         const payload = { ...updateData };
         if (payload.media_type) {
@@ -263,18 +266,48 @@ const App: React.FC = () => {
                 errorMessage = `Ocorreu um erro não-JSON: ${error}`;
               }
         }
-        alert(`Falha ao atualizar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura da tabela 'tasks' no Supabase corresponde ao que o aplicativo espera.`);
+        setApiError(`Falha ao atualizar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura da tabela 'tasks' no Supabase corresponde ao que o aplicativo espera.`);
     }
   };
 
   const deleteTask = async (taskId: string) => {
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
-    if (error) console.error('Erro ao deletar demanda:', error);
-    else setTasks(prev => prev.filter(task => task.id !== taskId));
+    setApiError(null);
+
+    // 1. Chamar Supabase.delete com .eq() na chave primária 'id'.
+    // Usar { count: 'exact' } para obter o número de linhas afetadas.
+    const { data, error, count } = await supabase
+      .from('tasks')
+      .delete({ count: 'exact' })
+      .eq('id', taskId);
+
+    // 2. Adicionar console.log para depuração.
+    console.log('Supabase delete response:', { data, error, count });
+
+    // 3. Tratar o caso de erro retornado pelo Supabase.
+    if (error) {
+      console.error('Erro detalhado ao deletar demanda:', error);
+      const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+      const errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}`;
+      
+      setApiError(`Falha ao deletar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique as políticas de segurança (Row Level Security) da sua tabela 'tasks' no Supabase. Certifique-se de que a role do seu usuário ('Diretor de Arte') tem permissão para a operação 'DELETE'.`);
+      return;
+    }
+
+    // 4. Tratar o caso em que a operação não dá erro, mas nada é deletado (count === 0 ou null),
+    // o que indica uma falha de permissão (RLS).
+    if (count === null || count === 0) {
+      console.error('Nenhuma demanda foi deletada. Provável falha de RLS.');
+      setApiError(`A operação de exclusão falhou.\n\nNenhuma demanda foi removida, o que geralmente indica um problema de permissão.\n\n---\n\n**Ação Recomendada:**\nVerifique se a política de segurança (Row Level Security) para 'DELETE' na tabela 'tasks' está corretamente configurada no Supabase para permitir que a sua função ('Diretor de Arte') execute esta ação.`);
+      return;
+    }
+    
+    // 5. Se a exclusão for bem-sucedida (count > 0), atualizar o estado da UI.
+    setTasks(prev => prev.filter(task => task.id !== taskId));
   };
 
   const addDesigner = async (designerData: any): Promise<{ success: boolean; message: string }> => {
     const FUNCTION_TIMEOUT = 20000;
+    setApiError(null);
 
     try {
         const functionPromise = supabase.functions.invoke('create-user-and-profile', {
@@ -329,21 +362,33 @@ const App: React.FC = () => {
   };
 
   const updateDesigner = async (updatedDesigner: Designer) => {
+    setApiError(null);
     const { data, error } = await supabase.from('designers').update(updatedDesigner).eq('id', updatedDesigner.id).select().single();
-    if (error) console.error('Erro ao atualizar designer:', error);
+    if (error) {
+        console.error('Erro ao atualizar designer:', error);
+        setApiError(`Falha ao atualizar designer: ${error.message}`);
+    }
     else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
   };
   
   const addAdvance = async (advanceData: Omit<Advance, 'id'>) => {
+    setApiError(null);
     const { data, error } = await supabase.from('advances').insert(advanceData).select().single();
-    if (error) console.error('Erro ao adicionar adiantamento:', error);
+    if (error) {
+        console.error('Erro ao adicionar adiantamento:', error);
+        setApiError(`Falha ao adicionar adiantamento: ${error.message}`);
+    }
     else if(data) setAdvances(prev => [data, ...prev]);
   };
 
   const deleteAdvance = async (advanceId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este adiantamento?')) {
+      setApiError(null);
       const { error } = await supabase.from('advances').delete().eq('id', advanceId);
-      if (error) console.error('Erro ao deletar adiantamento:', error);
+      if (error) {
+        console.error('Erro ao deletar adiantamento:', error);
+        setApiError(`Falha ao deletar adiantamento: ${error.message}`);
+      }
       else setAdvances(prev => prev.filter(adv => adv.id !== advanceId));
     }
   };
@@ -403,6 +448,17 @@ const App: React.FC = () => {
       <Header activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} loggedInUser={loggedInUser} />
       <div className="flex-1 flex flex-col">
         <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-base-200 overflow-y-auto">
+          {apiError && (
+            <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg mb-6 relative">
+              <h4 className="font-bold">Ocorreu um Erro</h4>
+              <pre className="text-sm whitespace-pre-wrap font-sans">{apiError}</pre>
+              <button 
+                onClick={() => setApiError(null)} 
+                className="absolute top-3 right-4 text-red-200 hover:text-white text-2xl font-bold"
+                aria-label="Fechar aviso"
+              >&times;</button>
+            </div>
+          )}
           {renderView()}
         </main>
         <footer className="bg-base-100 text-center p-4 text-xs text-base-content-secondary no-print uppercase">

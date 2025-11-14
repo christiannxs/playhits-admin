@@ -41,6 +41,11 @@ const TaskTable: React.FC<{
                           <p className="text-xs text-base-content-secondary mt-1">
                               <span className="font-medium">Mídia:</span> {task.media_type} | <span className="font-medium">Solicitante:</span> {task.social_media}
                           </p>
+                          {task.description && (
+                            <p className="text-xs text-base-content-secondary/80 mt-1 italic whitespace-pre-wrap">
+                                {task.description}
+                            </p>
+                          )}
                       </td>
                       <td className="p-4 text-base-content-secondary align-top">{designerMap.get(task.designer_id) || 'N/A'}</td>
                       <td className="p-4 text-base-content-secondary align-top">{formatDate(task.due_date)}</td>
@@ -76,11 +81,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
     media_type: '', 
     due_date: '', 
     artist: '', 
-    social_media: '' 
+    social_media: '',
+    description: '',
   };
   const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'>>(initialFormState);
   
   const [filterDesigner, setFilterDesigner] = useState<string>(isDirector ? 'all' : loggedInUser.id);
+  
+  const initialWeekRange = getWeekRange(new Date());
+  const [startDate, setStartDate] = useState<string>(toLocalDateString(initialWeekRange.start));
+  const [endDate, setEndDate] = useState<string>(toLocalDateString(initialWeekRange.end));
   
   const designerMap = useMemo(() => new Map(designers.map(d => [d.id, d.name])), [designers]);
 
@@ -98,6 +108,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
       due_date: task.due_date.split('T')[0],
       artist: task.artist,
       social_media: task.social_media,
+      description: task.description || '',
     });
     setIsModalOpen(true);
   };
@@ -133,15 +144,29 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       const designerMatch = filterDesigner === 'all' || task.designer_id === filterDesigner;
-      return designerMatch;
+
+      const dateMatch = (() => {
+        if (!startDate || !endDate) {
+          return true; // Don't filter if dates aren't set
+        }
+        
+        const taskDueDate = task.due_date.substring(0, 10);
+        
+        // Lexicographical comparison works for 'YYYY-MM-DD' format.
+        return taskDueDate >= startDate && taskDueDate <= endDate;
+      })();
+
+      return designerMatch && dateMatch;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [tasks, filterDesigner]);
+  }, [tasks, filterDesigner, startDate, endDate]);
   
   const groupedTasks = useMemo(() => {
     const groups: Record<string, { weekRange: { start: Date, end: Date }, tasks: Task[] }> = {};
     
     filteredTasks.forEach(task => {
-        const weekRange = getWeekRange(new Date(task.created_at));
+        // FIX: Group tasks by the week of their *due date*, not their creation date,
+        // to align the grouping with the date filtering logic.
+        const weekRange = getWeekRange(new Date(task.due_date));
         const weekKey = toLocalDateString(weekRange.start);
         if (!groups[weekKey]) {
             groups[weekKey] = { weekRange, tasks: [] };
@@ -187,13 +212,41 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
         </div>
       )}
 
-      <div className="flex space-x-4">
+      <div className="flex flex-wrap items-center gap-4 bg-base-100 p-4 rounded-2xl shadow-md">
+        <span className="font-semibold text-base-content-secondary">Filtros:</span>
         {isDirector && (
-          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary">
+          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary">
             <option value="all">Todos os Designers</option>
             {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         )}
+        <div className="flex items-center gap-2">
+            <label htmlFor="start-date" className="text-sm font-medium text-base-content-secondary">Entrega de:</label>
+            <input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+            />
+        </div>
+        <div className="flex items-center gap-2">
+            <label htmlFor="end-date" className="text-sm font-medium text-base-content-secondary">Até:</label>
+            <input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+            />
+        </div>
+        <button 
+          onClick={() => { setStartDate(''); setEndDate(''); }}
+          className="px-3 py-2 text-sm text-base-content-secondary hover:bg-base-300 rounded-lg transition-colors"
+          title="Limpar filtro de data"
+        >
+          Mostrar Todas
+        </button>
       </div>
 
        <div className="space-y-6">
@@ -217,7 +270,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
           })
         ) : (
           <div className="bg-base-100 rounded-2xl shadow-md text-center p-8 text-base-content-secondary">
-            Nenhuma demanda encontrada.
+            Nenhuma demanda encontrada para os filtros selecionados.
           </div>
         )}
       </div>
@@ -241,6 +294,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Social Media que solicitou</label>
             <input type="text" value={formData.social_media} onChange={e => setFormData({ ...formData, social_media: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Descrição da Demanda</label>
+            <textarea
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+              placeholder="Ex: Criar arte para post de Instagram sobre o novo single..."
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+            ></textarea>
           </div>
           {isDirector && (
             <div>

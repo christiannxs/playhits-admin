@@ -23,10 +23,11 @@ export interface Task {
   value: number;
   artist: string;
   social_media: string;
+  description: string;
 }
 
 // Define um tipo específico para os dados que podem ser atualizados em uma tarefa.
-export type UpdateTaskPayload = Pick<Task, 'designer_id' | 'media_type' | 'due_date' | 'artist' | 'social_media' | 'value'>;
+export type UpdateTaskPayload = Pick<Task, 'designer_id' | 'media_type' | 'due_date' | 'artist' | 'social_media' | 'value' | 'description'>;
 
 
 export interface Advance {

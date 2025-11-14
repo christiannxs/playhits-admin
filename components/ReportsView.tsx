@@ -189,7 +189,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                         <tbody>
                           {completedTasks.map(task => (
                             <tr key={task.id} className="border-b border-base-300/50">
-                              <td className="p-2">{task.media_type}<br/><span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span></td>
+                              <td className="p-2">
+                                {task.media_type}
+                                <br/>
+                                <span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span>
+                                {task.description && <p className="text-xs text-base-content-secondary/70 italic mt-1 max-w-xs whitespace-pre-wrap">{task.description}</p>}
+                              </td>
                               <td className="p-2">{task.artist}</td>
                               <td className="p-2 text-right">{formatCurrency(task.value)}</td>
                             </tr>

@@ -61,9 +61,11 @@ export const formatCurrency = (value: number) => {
 };
 
 export const formatDate = (dateString: string) => {
-    // The date string is expected to be an ISO string (UTC).
-    // We format it for display in the pt-BR locale and the target timezone.
-    return new Date(dateString).toLocaleDateString('pt-BR', { timeZone: TIMEZONE });
+    // The date string is YYYY-MM-DD. Parsing it with new Date() creates a date at UTC midnight.
+    // To prevent the local timezone from shifting the displayed date to the previous day,
+    // we explicitly format the date in the UTC timezone.
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
 
 export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task[], allAdvances: Advance[]) => {
