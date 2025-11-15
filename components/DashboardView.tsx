@@ -26,38 +26,51 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
     </div>
 );
 
-const FinancialDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser' | 'submissionWindow' | 'onToggleSubmissionWindow'>> = ({ designers, tasks, advances }) => {
-    const today = new Date();
-    const weekRange = getWeekRange(today);
-    const monthRange = getMonthRange(today);
-    const [paidStatus, setPaidStatus] = useState<Record<string, boolean>>({});
 
-    const actualDesigners = useMemo(() => designers.filter(d => d.type), [designers]);
+const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
+  designers,
+  tasks,
+  advances,
+  loggedInUser,
+  submissionWindow,
+  onToggleSubmissionWindow,
+}) => {
+  const [selectedDesignerId, setSelectedDesignerId] = useState('overview');
+  const [paidStatus, setPaidStatus] = useState<Record<string, boolean>>({});
 
-    const freelancers = useMemo(() => actualDesigners.filter(d => d.type === DesignerType.Freelancer), [actualDesigners]);
-    const fixedDesigners = useMemo(() => actualDesigners.filter(d => d.type === DesignerType.Fixed), [actualDesigners]);
+  const today = new Date();
+  const weekRange = getWeekRange(today);
+  const monthRange = getMonthRange(today);
 
-    const freelancerReports = useMemo(() => freelancers.map(designer => {
+  const isDirector = loggedInUser.role === 'Diretor de Arte';
+
+  // Memoized data for the overview mode
+  const overviewData = useMemo(() => {
+    const actualDesigners = designers.filter(d => d.type);
+    const freelancers = actualDesigners.filter(d => d.type === DesignerType.Freelancer);
+    const fixedDesigners = actualDesigners.filter(d => d.type === DesignerType.Fixed);
+    
+    // Freelancer weekly reports (for the table)
+    const freelancerReports = freelancers.map(designer => {
         const tasksInPeriod = tasks.filter(task =>
             task.designer_id === designer.id &&
             new Date(task.created_at) >= weekRange.start &&
             new Date(task.created_at) <= weekRange.end
         );
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
-
         const advancesInPeriod = advances.filter(adv =>
             adv.designer_id === designer.id &&
             new Date(adv.date) >= weekRange.start &&
             new Date(adv.date) <= weekRange.end
         );
         const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-
         const totalPayment = taskTotal - advancesTotal;
         const periodKey = `week-${toLocalDateString(weekRange.start)}`;
         return { designer, taskTotal, advancesTotal, totalPayment, periodKey };
-    }), [freelancers, tasks, advances, weekRange]);
+    });
 
-    const fixedReports = useMemo(() => fixedDesigners.map(designer => {
+    // Fixed monthly reports (for the table)
+    const fixedReports = fixedDesigners.map(designer => {
         const advancesInPeriod = advances.filter(adv =>
             adv.designer_id === designer.id &&
             new Date(adv.date) >= monthRange.start &&
@@ -66,196 +79,301 @@ const FinancialDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser' | 'su
         const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
         const totalPayment = (designer.salary || 0) - advancesTotal;
         const periodKey = `month-${monthRange.start.getFullYear()}-${monthRange.start.getMonth()}`;
-
         return { designer, salary: designer.salary || 0, advancesTotal, totalPayment, periodKey };
-    }), [fixedDesigners, advances, monthRange]);
-
-    const handleTogglePaid = (key: string) => {
-        setPaidStatus(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    return (
-        <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
-                <h2 className="text-3xl font-bold text-base-content">Painel Financeiro</h2>
-                <button onClick={() => window.print()} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
-                    <PrinterIcon />
-                    <span className="ml-2">Imprimir Relatórios</span>
-                </button>
-            </div>
-            <div id="print-area" className="space-y-8">
-                <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                    <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos da Semana - Freelancers</h3>
-                    <p className="text-sm text-base-content-secondary mb-4">Período: {formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="border-b-2 border-base-300">
-                                <tr>
-                                    <th className="p-3">Designer</th>
-                                    <th className="p-3">Produzido</th>
-                                    <th className="p-3">Adiantamentos</th>
-                                    <th className="p-3 font-bold">Total a Pagar</th>
-                                    <th className="p-3 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {freelancerReports.filter(r => r.totalPayment !== 0 || r.taskTotal > 0).map(report => {
-                                    const paymentKey = `${report.designer.id}-${report.periodKey}`;
-                                    const isPaid = paidStatus[paymentKey];
-                                    return (
-                                    <tr key={report.designer.id} className="border-b border-base-300/50">
-                                        <td className="p-3 font-semibold">{report.designer.name}</td>
-                                        <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
-                                        <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
-                                        <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
-                                        <td className="p-3 text-center">
-                                            <label className="flex items-center justify-center cursor-pointer">
-                                                <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
-                                                <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
-                                                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
-                                                </div>
-                                                <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
-                                            </label>
-                                        </td>
-                                    </tr>
-                                )})}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                 <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                    <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos do Mês - Equipe Fixa</h3>
-                     <p className="text-sm text-base-content-secondary mb-4">Mês de Referência: {today.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
-                    <div className="overflow-x-auto">
-                         <table className="w-full text-left">
-                            <thead className="border-b-2 border-base-300">
-                                <tr>
-                                    <th className="p-3">Designer</th>
-                                    <th className="p-3">Salário Base</th>
-                                    <th className="p-3">Adiantamentos</th>
-                                    <th className="p-3 font-bold">Total a Pagar</th>
-                                    <th className="p-3 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {fixedReports.map(report => {
-                                    const paymentKey = `${report.designer.id}-${report.periodKey}`;
-                                    const isPaid = paidStatus[paymentKey];
-                                    return (
-                                    <tr key={report.designer.id} className="border-b border-base-300/50">
-                                        <td className="p-3 font-semibold">{report.designer.name}</td>
-                                        <td className="p-3">{formatCurrency(report.salary)}</td>
-                                        <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
-                                        <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
-                                        <td className="p-3 text-center">
-                                             <label className="flex items-center justify-center cursor-pointer">
-                                                <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
-                                                <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
-                                                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
-                                                </div>
-                                                <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
-                                            </label>
-                                        </td>
-                                    </tr>
-                                )})}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-const DirectorDashboard: React.FC<Omit<DashboardViewProps, 'loggedInUser'>> = ({ designers, tasks, submissionWindow, onToggleSubmissionWindow }) => {
-    const today = new Date();
-    const weekRange = getWeekRange(today);
-    const monthRange = getMonthRange(today);
-    
-    const freelancerTasksThisWeek = tasks.filter(task => {
-        const designer = designers.find(d => d.id === task.designer_id);
-        if (!designer || designer.type !== DesignerType.Freelancer) return false;
-        const created = new Date(task.created_at);
-        return created >= weekRange.start && created <= weekRange.end;
     });
-    const weeklyFreelancerTotal = freelancerTasksThisWeek.reduce((sum, task) => sum + task.value, 0);
-
-    const fixedDesigners = designers.filter(d => d.type === DesignerType.Fixed);
+    
+    // Stats for the cards
     const monthlyFixedTotal = fixedDesigners.reduce((sum, d) => sum + (d.salary || 0), 0);
-
-    const freelancerTasksThisMonth = tasks.filter(task => {
-        const designer = designers.find(d => d.id === task.designer_id);
-        if (!designer || designer.type !== DesignerType.Freelancer) return false;
+    const tasksThisMonth = tasks.filter(task => {
         const created = new Date(task.created_at);
         return created >= monthRange.start && created <= monthRange.end;
     });
-    const monthlyFreelancerTotal = freelancerTasksThisMonth.reduce((sum, task) => sum + task.value, 0);
-
+    const monthlyFreelancerTotal = tasksThisMonth
+        .filter(t => freelancers.some(f => f.id === t.designer_id))
+        .reduce((sum, task) => sum + task.value, 0);
     const totalMonthlySpend = monthlyFixedTotal + monthlyFreelancerTotal;
-
-    const designerMonthlyCostData = designers.filter(d => d.type).map(designer => {
-        let cost = 0;
-        if (designer.type === DesignerType.Fixed) {
-            cost = designer.salary || 0;
-        } else {
-            cost = tasks
-                .filter(task => task.designer_id === designer.id && new Date(task.created_at) >= monthRange.start && new Date(task.created_at) <= monthRange.end)
-                .reduce((sum, task) => sum + task.value, 0);
-        }
-        return {
-        name: designer.name.split(' ')[0], // First name
-        custo: cost
-        };
-    }).filter(d => d.custo > 0);
+    const completedTasksThisMonth = tasksThisMonth.length;
     
-    return (
-        <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-base-content">Dashboard</h2>
+    return { freelancerReports, fixedReports, totalMonthlySpend, monthlyFixedTotal, monthlyFreelancerTotal, completedTasksThisMonth };
+  }, [designers, tasks, advances, weekRange, monthRange]);
 
-            <div className="bg-base-100 p-6 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div>
-                    <h3 className="text-xl font-bold text-base-content">Envio de Demandas da Semana</h3>
-                    <p className={`text-sm ${submissionWindow.isOpen ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {submissionWindow.isOpen && submissionWindow.deadline 
-                            ? `Aberto até ${new Date(submissionWindow.deadline).toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}` 
-                            : 'Fechado'}
-                    </p>
-                </div>
-                <button 
-                    onClick={onToggleSubmissionWindow} 
-                    className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors shadow-sm w-full sm:w-auto ${submissionWindow.isOpen ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'}`}
-                >
-                    {submissionWindow.isOpen ? 'Fechar Envios' : 'Abrir Envios'}
-                </button>
-            </div>
+  // Memoized data for the specific designer view
+  const selectedDesignerData = useMemo(() => {
+    if (selectedDesignerId === 'overview') return null;
+    const designer = designers.find(d => d.id === selectedDesignerId);
+    if (!designer) return null;
+    
+    let stats = {};
+    let recentTasks: Task[] = [];
+    let recentAdvances: Advance[] = [];
+    const paymentHistory = designer.type === DesignerType.Freelancer
+        ? calculateWeeklyPaymentHistory(designer.id, tasks, advances)
+        : [];
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Pagamento Freelas (Semana)" value={formatCurrency(weeklyFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
-                <StatCard title="Custo Fixo (Mês)" value={formatCurrency(monthlyFixedTotal)} icon={<UsersIcon className="text-brand-primary" />} />
-                <StatCard title="Gasto Total (Mês)" value={formatCurrency(totalMonthlySpend)} icon={<CreditCardIcon className="text-brand-primary" />} />
-                <StatCard title="Demandas Concluídas (Mês)" value={freelancerTasksThisMonth.length.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
-            </div>
+    if (designer.type === DesignerType.Fixed) {
+        const advancesInPeriod = advances.filter(adv =>
+            adv.designer_id === designer.id &&
+            new Date(adv.date) >= monthRange.start &&
+            new Date(adv.date) <= monthRange.end
+        );
+        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+        const finalPayment = (designer.salary || 0) - advancesTotal;
+        recentTasks = tasks.filter(t => t.designer_id === designer.id && new Date(t.created_at) >= monthRange.start && new Date(t.created_at) <= monthRange.end);
+        recentAdvances = advancesInPeriod;
+        
+        stats = {
+            'Salário Base': formatCurrency(designer.salary || 0),
+            'Adiantamentos (Mês)': `-${formatCurrency(advancesTotal)}`,
+            'Pagamento Final': formatCurrency(finalPayment),
+            'Demandas (Mês)': recentTasks.length.toString(),
+        };
+    } else { // Freelancer
+        const tasksInPeriod = tasks.filter(task => 
+            task.designer_id === designer.id &&
+            new Date(task.created_at) >= weekRange.start &&
+            new Date(task.created_at) <= weekRange.end
+        );
+        const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
+        const advancesInPeriod = advances.filter(adv =>
+            adv.designer_id === designer.id &&
+            new Date(adv.date) >= weekRange.start &&
+            new Date(adv.date) <= weekRange.end
+        );
+        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+        const totalPayment = taskTotal - advancesTotal;
+        recentTasks = tasksInPeriod;
+        recentAdvances = advancesInPeriod;
 
-            <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-base-content">Custos do Mês por Designer</h3>
-                <div style={{ width: '100%', height: 300 }}>
-                <ResponsiveContainer>
-                    <BarChart data={designerMonthlyCostData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => formatCurrency(Number(value))} />
-                    <Tooltip formatter={(value: number) => [formatCurrency(value), 'Custo no Mês']} 
-                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', color: '#F9FAFB' }}
-                        />
-                    <Legend />
-                    <Bar dataKey="custo" fill="#DC2626" name="Custo Mensal" />
-                    </BarChart>
-                </ResponsiveContainer>
-                </div>
+        stats = {
+            'Produzido (Semana)': formatCurrency(taskTotal),
+            'Adiantamentos (Semana)': `-${formatCurrency(advancesTotal)}`,
+            'A Pagar (Semana)': formatCurrency(totalPayment),
+            'Demandas (Semana)': recentTasks.length.toString(),
+        };
+    }
+    
+    return { designer, stats, recentTasks, recentAdvances, paymentHistory };
+  }, [selectedDesignerId, designers, tasks, advances, weekRange, monthRange]);
+
+  const handleTogglePaid = (key: string) => {
+    setPaidStatus(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-8" id="print-area">
+      {isDirector && (
+        <div className="bg-base-100 p-6 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
+            <div>
+                <h3 className="text-xl font-bold text-base-content">Envio de Demandas da Semana</h3>
+                <p className={`text-sm ${submissionWindow.isOpen ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {submissionWindow.isOpen && submissionWindow.deadline 
+                        ? `Aberto até ${new Date(submissionWindow.deadline).toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}` 
+                        : 'Fechado'}
+                </p>
             </div>
+            <button 
+                onClick={onToggleSubmissionWindow} 
+                className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors shadow-sm w-full sm:w-auto ${submissionWindow.isOpen ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'}`}
+            >
+                {submissionWindow.isOpen ? 'Fechar Envios' : 'Abrir Envios'}
+            </button>
         </div>
-    )
-}
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
+        <StatCard title="Gasto Total (Mês)" value={formatCurrency(overviewData.totalMonthlySpend)} icon={<CreditCardIcon className="text-brand-primary" />} />
+        <StatCard title="Custo Fixo (Mês)" value={formatCurrency(overviewData.monthlyFixedTotal)} icon={<UsersIcon className="text-brand-primary" />} />
+        <StatCard title="Custo Freelas (Mês)" value={formatCurrency(overviewData.monthlyFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
+        <StatCard title="Demandas Concluídas (Mês)" value={overviewData.completedTasksThisMonth.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
+      </div>
+
+      <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+        <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos da Semana - Freelancers</h3>
+        <p className="text-sm text-base-content-secondary mb-4">Período: {formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+                <thead className="border-b-2 border-base-300">
+                    <tr>
+                        <th className="p-3">Designer</th>
+                        <th className="p-3">Produzido</th>
+                        <th className="p-3">Adiantamentos</th>
+                        <th className="p-3 font-bold">Total a Pagar</th>
+                        <th className="p-3 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {overviewData.freelancerReports.filter(r => r.totalPayment !== 0 || r.taskTotal > 0).map(report => {
+                        const paymentKey = `${report.designer.id}-${report.periodKey}`;
+                        const isPaid = paidStatus[paymentKey];
+                        return (
+                        <tr key={report.designer.id} className="border-b border-base-300/50">
+                            <td className="p-3 font-semibold">{report.designer.name}</td>
+                            <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
+                            <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
+                            <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
+                            <td className="p-3 text-center">
+                                <label className="flex items-center justify-center cursor-pointer">
+                                    <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
+                                    <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
+                                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
+                                    </div>
+                                    <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
+                                </label>
+                            </td>
+                        </tr>
+                    )})}
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+       <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+        <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos do Mês - Equipe Fixa</h3>
+         <p className="text-sm text-base-content-secondary mb-4">Mês de Referência: {today.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
+        <div className="overflow-x-auto">
+             <table className="w-full text-left">
+                <thead className="border-b-2 border-base-300">
+                    <tr>
+                        <th className="p-3">Designer</th>
+                        <th className="p-3">Salário Base</th>
+                        <th className="p-3">Adiantamentos</th>
+                        <th className="p-3 font-bold">Total a Pagar</th>
+                        <th className="p-3 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {overviewData.fixedReports.map(report => {
+                        const paymentKey = `${report.designer.id}-${report.periodKey}`;
+                        const isPaid = paidStatus[paymentKey];
+                        return (
+                        <tr key={report.designer.id} className="border-b border-base-300/50">
+                            <td className="p-3 font-semibold">{report.designer.name}</td>
+                            <td className="p-3">{formatCurrency(report.salary)}</td>
+                            <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
+                            <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
+                            <td className="p-3 text-center">
+                                 <label className="flex items-center justify-center cursor-pointer">
+                                    <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
+                                    <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
+                                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
+                                    </div>
+                                    <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
+                                </label>
+                            </td>
+                        </tr>
+                    )})}
+                </tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDesignerDetail = () => {
+    if (!selectedDesignerData) {
+      return (
+        <div className="bg-base-100 p-8 rounded-2xl text-center">
+            <p className="text-base-content-secondary">Designer não encontrado. Selecione outro na lista.</p>
+        </div>
+      );
+    }
+    const { designer, stats, recentTasks, recentAdvances, paymentHistory } = selectedDesignerData;
+    const periodLabel = designer.type === DesignerType.Fixed ? 'Mês' : 'Semana';
+
+    return (
+      <div className="space-y-8" id="print-area">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Object.entries(stats).map(([key, value]) => (
+                <div key={key} className="bg-base-100 p-6 rounded-2xl shadow-md">
+                    <p className="text-sm text-base-content-secondary">{key}</p>
+                    <p className="text-2xl font-bold text-base-content">{value}</p>
+                </div>
+            ))}
+        </div>
+        
+        <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+          <h3 className="text-xl font-bold mb-4 text-base-content">Demandas Recentes ({periodLabel})</h3>
+          <div className="overflow-x-auto">
+            {recentTasks.length > 0 ? (
+                <table className="w-full text-left text-sm">
+                    <thead className="border-b-2 border-base-300">
+                      <tr>
+                        <th className="p-2">Artista</th>
+                        <th className="p-2">Mídia</th>
+                        <th className="p-2">Entrega</th>
+                        <th className="p-2 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentTasks.map(task => (
+                        <tr key={task.id} className="border-b border-base-300/50">
+                          <td className="p-2 font-semibold">{task.artist}</td>
+                          <td className="p-2">{task.media_type}</td>
+                          <td className="p-2">{formatDate(task.due_date)}</td>
+                          <td className="p-2 text-right font-medium">{formatCurrency(task.value)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                </table>
+            ) : <p className="text-base-content-secondary text-center py-4">Nenhuma demanda neste período.</p>}
+          </div>
+        </div>
+
+        {designer.type === DesignerType.Freelancer && paymentHistory.length > 0 && (
+             <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+                <h3 className="text-xl font-bold mb-4 text-base-content">Histórico de Pagamentos Semanais</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="border-b-2 border-base-300">
+                            <tr>
+                                <th className="p-3 font-semibold text-base-content-secondary">Período</th>
+                                <th className="p-3 font-semibold text-base-content-secondary text-right">Valor Pago</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paymentHistory.map(entry => (
+                                <tr key={entry.range.start.toISOString()} className="border-b border-base-300/50">
+                                    <td className="p-3">{formatDate(entry.range.start.toISOString())} - {formatDate(entry.range.end.toISOString())}</td>
+                                    <td className={`p-3 font-semibold text-right ${entry.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(entry.total)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+      </div>
+    );
+  };
+  
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-3xl font-bold text-base-content">
+          {selectedDesignerId !== 'overview' && selectedDesignerData ? `Análise: ${selectedDesignerData.designer.name}` : (isDirector ? 'Dashboard do Diretor' : 'Painel Financeiro')}
+        </h2>
+        <div className="flex items-center gap-4 no-print">
+          <select
+            value={selectedDesignerId}
+            onChange={e => setSelectedDesignerId(e.target.value)}
+            className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+          >
+            <option value="overview">Visão Geral</option>
+            {designers.filter(d => d.type).sort((a,b) => a.name.localeCompare(b.name)).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+           <button onClick={() => window.print()} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
+              <PrinterIcon />
+              <span className="ml-2">Imprimir</span>
+           </button>
+        </div>
+      </div>
+      
+      {selectedDesignerId === 'overview' ? renderOverview() : renderDesignerDetail()}
+    </div>
+  );
+};
+
 
 const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUser' | 'submissionWindow' | 'advances'>> = ({ tasks, loggedInUser, submissionWindow, advances }) => {
     const isFixed = loggedInUser.type === DesignerType.Fixed;
@@ -391,12 +509,8 @@ const DashboardView: React.FC<DashboardViewProps> = (props) => {
   const isDirector = props.loggedInUser.role === 'Diretor de Arte';
   const isFinancial = props.loggedInUser.role === 'Financeiro';
 
-  if (isDirector) {
-    return <DirectorDashboard {...props} />
-  }
-
-  if (isFinancial) {
-    return <FinancialDashboard {...props} />
+  if (isDirector || isFinancial) {
+    return <UnifiedAdminDashboard {...props} />
   }
   
   return <DesignerDashboard {...props} />;
