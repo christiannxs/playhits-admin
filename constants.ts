@@ -57,3 +57,11 @@ export const ARTIST_LIST: string[] = [
   'Felipão',
   'Cesinha Garcia',
 ];
+
+export const SOCIAL_MEDIA_LIST: string[] = [
+  'Pâmela Emilly',
+  'Livia Xavier',
+  'Jully Morais',
+  'Pietra Carvalho',
+  'Guardekey Louisy',
+];

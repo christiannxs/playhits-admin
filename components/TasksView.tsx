@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, UpdateTaskPayload } from '../types';
-import { MEDIA_PRICES, ARTIST_LIST } from '../constants';
+import { MEDIA_PRICES, ARTIST_LIST, SOCIAL_MEDIA_LIST } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
 import { PlusIcon, ClockIcon, PencilIcon, TrashIcon } from './icons/Icons';
@@ -293,7 +293,17 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Social Media que solicitou</label>
-            <input type="text" value={formData.social_media} onChange={e => setFormData({ ...formData, social_media: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <select
+              value={formData.social_media}
+              onChange={e => setFormData({ ...formData, social_media: e.target.value })}
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+              required
+            >
+              <option value="">Selecione um social media</option>
+              {SOCIAL_MEDIA_LIST.sort((a, b) => a.localeCompare(b)).map(sm => (
+                <option key={sm} value={sm}>{sm}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Descrição da Demanda</label>
