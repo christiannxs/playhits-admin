@@ -44,18 +44,19 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
 };
 
 export const ARTIST_LIST: string[] = [
-  'Mara Pavanelly',
-  'Laninha show',
-  'Walfredo',
   'A dama',
-  'Renno',
-  'Kelly ollliveira',
-  'Ju Moura',
-  'Felipe grilo',
-  'Kelvy Pablo',
   'Briola',
-  'Felipão',
   'Cesinha Garcia',
+  'Felipão',
+  'Felipe grilo',
+  'Ju Moura',
+  'Kelly ollliveira',
+  'Kelvy Pablo',
+  'Laninha show',
+  'Mara Pavanelly',
+  'Mari & Rayane',
+  'Renno',
+  'Walfredo',
 ];
 
 export const SOCIAL_MEDIA_LIST: string[] = [
