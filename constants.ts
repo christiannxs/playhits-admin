@@ -1,3 +1,4 @@
+
 import { MediaType } from './types';
 
 export const MEDIA_PRICES: Record<string, MediaType> = {
@@ -49,6 +50,7 @@ export const ARTIST_LIST: string[] = [
   'Cesinha Garcia',
   'Felipão',
   'Felipe grilo',
+  'Forró dos 3',
   'Ju Moura',
   'Kelly ollliveira',
   'Kelvy Pablo',
