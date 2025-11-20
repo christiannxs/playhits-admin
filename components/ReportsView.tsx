@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, DesignerType, Advance } from '../types';
 import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory } from '../utils/dateUtils';
-import { ClipboardCopyIcon, CalendarIcon } from './icons/Icons';
+import { ClipboardCopyIcon, CalendarIcon, UserIcon, CashIcon, CheckCircleIcon } from './icons/Icons';
 
 interface ReportsViewProps {
   designers: Designer[];
@@ -114,7 +114,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
         reportText += 'Nenhum pagamento para freelancers neste período.\n\n';
     }
 
-
     // Fixed Team
     reportText += `RELATÓRIO MENSAL - EQUIPE FIXA\n`;
     reportText += `Mês: ${date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}\n`;
@@ -151,161 +150,218 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
-        <h2 className="text-3xl font-bold text-base-content">Relatórios de Pagamento</h2>
+        <h2 className="text-3xl font-bold text-base-content">Relatórios Kanban</h2>
         <div className="flex items-center gap-4">
            <div className="relative">
-             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="p-2 pl-10 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"/>
+             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="p-2 pl-10 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary text-base-content"/>
              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary" />
            </div>
            <button onClick={handleCopyReport} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
              <ClipboardCopyIcon />
-             <span className="ml-2">Copiar Relatório</span>
+             <span className="ml-2">Copiar TXT</span>
            </button>
         </div>
       </div>
       
-      <div id="print-area" className="space-y-8">
-        {/* Freelancer Report */}
-        <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-          <h3 className="text-xl font-bold mb-2 text-base-content">Pagamento Semanal - Freelancers</h3>
-          <p className="text-sm text-base-content-secondary mb-4">Período de Referência: {formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
-          <div className="space-y-6">
-            {freelancerReports.filter(r => r.totalPayment !== 0 || r.completedTasks.length > 0 || r.advancesInPeriod.length > 0).length > 0 ? (
-                freelancerReports.map(({ freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal, paymentHistory }) => (
-                (taskTotal > 0 || advancesTotal > 0) && (
-                  <div key={freelancer.id} className="border-t border-base-300 pt-4 first:border-t-0 first:pt-0">
-                    <div className="flex justify-between items-baseline">
-                      <h4 className="font-semibold text-lg text-base-content">{freelancer.name}</h4>
-                    </div>
-                    {completedTasks.length > 0 && (
-                      <table className="w-full text-left mt-2 text-sm">
-                        <thead className="border-b border-base-300">
-                          <tr>
-                            <th className="p-2 font-medium text-base-content-secondary">Demanda</th>
-                            <th className="p-2 font-medium text-base-content-secondary">Artista</th>
-                            <th className="p-2 font-medium text-base-content-secondary text-right">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {completedTasks.map(task => (
-                            <tr key={task.id} className="border-b border-base-300/50">
-                              <td className="p-2">
-                                {task.media_type}
-                                <br/>
-                                <span className="text-xs text-base-content-secondary/70">Sol: {task.social_media}</span>
-                                {task.description && <p className="text-xs text-base-content-secondary/70 italic mt-1 max-w-xs whitespace-pre-wrap">{task.description}</p>}
-                              </td>
-                              <td className="p-2">{task.artist}</td>
-                              <td className="p-2 text-right">{formatCurrency(task.value)}</td>
-                            </tr>
-                          ))}
-                           <tr className="font-semibold">
-                              <td colSpan={2} className="p-2 text-right">Subtotal das Demandas:</td>
-                              <td className="p-2 text-right">{formatCurrency(taskTotal)}</td>
-                            </tr>
-                        </tbody>
-                      </table>
-                    )}
-                     {advancesInPeriod.length > 0 && (
-                      <table className="w-full text-left mt-2 text-sm">
-                        <thead className="border-b border-base-300">
-                           <tr>
-                            <th className="p-2 font-medium text-base-content-secondary">Adiantamentos (Vales)</th>
-                            <th className="p-2 font-medium text-base-content-secondary text-right">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {advancesInPeriod.map(adv => (
-                            <tr key={adv.id} className="border-b border-base-300/50">
-                              <td className="p-2">{adv.description} <span className="text-xs text-base-content-secondary/70">({formatDate(adv.date)})</span></td>
-                              <td className="p-2 text-right text-yellow-400">-{formatCurrency(adv.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                    <div className="text-right mt-2 pt-2 border-t border-base-300/50">
-                        <span className="text-sm text-base-content-secondary">Total a Pagar: </span>
-                        <span className="font-bold text-lg text-brand-primary">{formatCurrency(totalPayment)}</span>
-                    </div>
+      <div id="print-area" className="space-y-10">
+        
+        {/* Freelancer Section */}
+        <div>
+            <div className="flex items-center gap-2 mb-4">
+                <div className="bg-teal-500/20 p-2 rounded-full">
+                     <UserIcon className="text-teal-400 h-6 w-6" />
+                </div>
+                <div>
+                     <h3 className="text-xl font-bold text-base-content">Freelancers (Semanal)</h3>
+                     <p className="text-xs text-base-content-secondary">{formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
+                </div>
+            </div>
 
-                    {paymentHistory.length > 0 && (
-                        <div className="mt-4">
-                            <h5 className="font-semibold text-sm text-base-content-secondary">Histórico de Pagamentos Semanais</h5>
-                             <table className="w-full max-w-sm text-left mt-1 text-xs">
-                                <thead className="border-b border-base-300">
-                                    <tr>
-                                        <th className="p-1 font-medium text-base-content-secondary">Período</th>
-                                        <th className="p-1 font-medium text-base-content-secondary text-right">Valor Pago</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {paymentHistory.map(entry => (
-                                        <tr key={entry.range.start.toISOString()} className="border-b border-base-300/50">
-                                            <td className="p-1">{formatDate(entry.range.start.toISOString())} - {formatDate(entry.range.end.toISOString())}</td>
-                                            <td className={`p-1 text-right font-medium ${entry.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(entry.total)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                  </div>
-                )
-              ))
-            ) : (<p className="text-base-content-secondary text-center py-4">Nenhum pagamento para freelancers neste período.</p>)}
-          </div>
+            {/* Grid Kanban Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {freelancerReports.filter(r => r.totalPayment !== 0 || r.completedTasks.length > 0 || r.advancesInPeriod.length > 0).length > 0 ? (
+                    freelancerReports.map(({ freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal }) => (
+                        (taskTotal > 0 || advancesTotal > 0) && (
+                            <div key={freelancer.id} className="bg-base-100 rounded-2xl shadow-lg border border-base-300 flex flex-col overflow-hidden h-full">
+                                {/* Card Header */}
+                                <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
+                                    <div>
+                                        <h4 className="font-bold text-lg text-base-content leading-tight">{freelancer.name}</h4>
+                                        <span className="text-xs text-base-content-secondary uppercase tracking-wide">Freelancer</span>
+                                    </div>
+                                    <div className="text-right">
+                                         <span className={`text-lg font-bold ${totalPayment >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {formatCurrency(totalPayment)}
+                                         </span>
+                                    </div>
+                                </div>
+
+                                {/* Card Body (Scrollable) */}
+                                <div className="flex-1 p-4 overflow-y-auto max-h-80 custom-scrollbar space-y-4">
+                                    {/* Tasks Section */}
+                                    {completedTasks.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-bold text-base-content-secondary uppercase mb-2 flex items-center gap-1">
+                                                <CheckCircleIcon className="h-3 w-3" /> Demandas
+                                            </p>
+                                            <div className="space-y-2">
+                                                {completedTasks.map(task => (
+                                                    <div key={task.id} className="bg-base-200/30 p-2 rounded border border-base-300/50 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="font-medium text-base-content">{task.media_type}</span>
+                                                            <span className="text-base-content-secondary">{formatCurrency(task.value)}</span>
+                                                        </div>
+                                                        <div className="text-xs text-base-content-secondary mt-1">
+                                                            {task.artist} • {task.social_media}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Advances Section */}
+                                    {advancesInPeriod.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-bold text-red-400 uppercase mb-2 flex items-center gap-1 mt-4">
+                                                <CashIcon className="h-3 w-3" /> Adiantamentos
+                                            </p>
+                                            <div className="space-y-2">
+                                                {advancesInPeriod.map(adv => (
+                                                    <div key={adv.id} className="bg-red-900/10 p-2 rounded border border-red-900/20 text-sm flex justify-between items-center">
+                                                        <span className="text-base-content-secondary text-xs">{adv.description}</span>
+                                                        <span className="text-red-400 font-medium">-{formatCurrency(adv.amount)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {(completedTasks.length === 0 && advancesInPeriod.length === 0) && (
+                                        <p className="text-center text-sm text-base-content-secondary italic">Sem movimentação</p>
+                                    )}
+                                </div>
+
+                                {/* Card Footer (Summary) */}
+                                <div className="bg-base-200/30 p-4 border-t border-base-300 text-sm space-y-1">
+                                    <div className="flex justify-between text-base-content-secondary">
+                                        <span>Produção:</span>
+                                        <span className="text-base-content">{formatCurrency(taskTotal)}</span>
+                                    </div>
+                                    {advancesTotal > 0 && (
+                                        <div className="flex justify-between text-red-300">
+                                            <span>Vales:</span>
+                                            <span>-{formatCurrency(advancesTotal)}</span>
+                                        </div>
+                                    )}
+                                    <div className="pt-2 mt-1 border-t border-base-300 flex justify-between font-bold text-base-content">
+                                        <span>Total a Pagar:</span>
+                                        <span className="text-brand-primary">{formatCurrency(totalPayment)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    ))
+                ) : (
+                    <div className="col-span-full p-8 text-center bg-base-100 rounded-xl border-dashed border-2 border-base-300">
+                         <p className="text-base-content-secondary">Nenhum registro encontrado para freelancers nesta semana.</p>
+                    </div>
+                )}
+            </div>
         </div>
 
-        <>
-            {/* Fixed Salary Report */}
-            <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-            <h3 className="text-xl font-bold mb-2 text-base-content">Relatório Mensal - Equipe Fixa</h3>
-            <p className="text-sm text-base-content-secondary mb-4">Mês de Referência: {date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
-            <table className="w-full text-left">
-                <thead className="border-b border-base-300 bg-base-200/50">
-                    <tr>
-                        <th className="p-4 font-semibold text-base-content-secondary">Designer</th>
-                        <th className="p-4 font-semibold text-base-content-secondary">Salário Base</th>
-                        <th className="p-4 font-semibold text-base-content-secondary">Adiantamentos</th>
-                        <th className="p-4 font-semibold text-base-content-secondary">Pagamento Final</th>
-                        <th className="p-4 font-semibold text-base-content-secondary text-center">Demandas (Mês)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {fixedReports.map(({ designer, completedTasks, finalSalary, advancesTotal }) => (
-                        <tr key={designer.id} className="border-b border-base-300">
-                            <td className="p-4 font-semibold text-base-content">{designer.name}</td>
-                            <td className="p-4">{formatCurrency(designer.salary || 0)}</td>
-                            <td className="p-4 text-yellow-400">-{formatCurrency(advancesTotal)}</td>
-                            <td className="p-4 font-semibold text-brand-primary">{formatCurrency(finalSalary)}</td>
-                            <td className="p-4 text-center">{completedTasks.length}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+        {/* Fixed Team Section */}
+        <div>
+            <div className="flex items-center gap-2 mb-4">
+                <div className="bg-indigo-500/20 p-2 rounded-full">
+                     <UserIcon className="text-indigo-400 h-6 w-6" />
+                </div>
+                <div>
+                     <h3 className="text-xl font-bold text-base-content">Equipe Fixa (Mensal)</h3>
+                     <p className="text-xs text-base-content-secondary">{date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
+                </div>
             </div>
 
-            {/* Consolidated Monthly Report */}
-            <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                <h3 className="text-xl font-bold mb-2 text-base-content">Relatório Mensal Consolidado</h3>
-                <p className="text-sm text-base-content-secondary mb-4">Mês de Referência: {date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
-                <div className="space-y-4">
-                <div className="flex justify-between items-center bg-base-200/50 p-4 rounded-lg">
-                    <span className="font-semibold">Custo Total (Salários Fixos + Demandas Freelas):</span>
-                    <span>{formatCurrency(monthlyFixedTotal + monthlyTasksTotal)}</span>
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {fixedReports.map(({ designer, completedTasks, finalSalary, advancesTotal, salary }) => (
+                     <div key={designer.id} className="bg-base-100 rounded-2xl shadow-lg border border-base-300 flex flex-col overflow-hidden h-full">
+                        {/* Header */}
+                         <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
+                            <div>
+                                <h4 className="font-bold text-lg text-base-content leading-tight">{designer.name}</h4>
+                                <span className="text-xs text-base-content-secondary uppercase tracking-wide">Fixo</span>
+                            </div>
+                            <div className="text-right">
+                                    <span className={`text-lg font-bold text-brand-primary`}>
+                                    {formatCurrency(finalSalary)}
+                                    </span>
+                            </div>
+                        </div>
+                        
+                        {/* Body */}
+                        <div className="flex-1 p-4 space-y-4">
+                            <div className="flex items-center justify-between bg-base-200/30 p-3 rounded-lg">
+                                <span className="text-sm text-base-content-secondary">Produtividade (Demandas):</span>
+                                <span className="font-bold text-base-content">{completedTasks.length}</span>
+                            </div>
+                            
+                            {advancesTotal > 0 ? (
+                                <div>
+                                     <p className="text-xs font-bold text-red-400 uppercase mb-2 flex items-center gap-1">
+                                        <CashIcon className="h-3 w-3" /> Adiantamentos
+                                    </p>
+                                    <div className="bg-red-900/10 p-3 rounded-lg border border-red-900/20 flex justify-between items-center">
+                                        <span className="text-sm text-base-content-secondary">Total Vales</span>
+                                        <span className="font-bold text-red-400">-{formatCurrency(advancesTotal)}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-4 text-center text-sm text-base-content-secondary italic bg-base-200/20 rounded-lg">
+                                    Sem adiantamentos este mês.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                         <div className="bg-base-200/30 p-4 border-t border-base-300 text-sm space-y-1">
+                            <div className="flex justify-between text-base-content-secondary">
+                                <span>Salário Base:</span>
+                                <span className="text-base-content">{formatCurrency(salary)}</span>
+                            </div>
+                            {advancesTotal > 0 && (
+                                <div className="flex justify-between text-red-300">
+                                    <span>Vales:</span>
+                                    <span>-{formatCurrency(advancesTotal)}</span>
+                                </div>
+                            )}
+                            <div className="pt-2 mt-1 border-t border-base-300 flex justify-between font-bold text-base-content">
+                                <span>Total a Receber:</span>
+                                <span className="text-brand-primary">{formatCurrency(finalSalary)}</span>
+                            </div>
+                        </div>
+                     </div>
+                ))}
+             </div>
+        </div>
+
+        {/* Consolidated Monthly Report (Bar at bottom) */}
+        <div className="bg-base-200 p-6 rounded-2xl border border-base-300">
+            <h3 className="text-lg font-bold mb-4 text-base-content border-b border-base-300 pb-2">Resumo Geral Consolidado</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col">
+                    <span className="text-sm text-base-content-secondary">Custo Total (Fixos + Freelas)</span>
+                    <span className="text-xl font-bold text-base-content">{formatCurrency(monthlyFixedTotal + monthlyTasksTotal)}</span>
                 </div>
-                <div className="flex justify-between items-center bg-base-200/50 p-4 rounded-lg">
-                    <span className="font-semibold">Total Adiantamentos (Vales):</span>
-                    <span className="text-yellow-400">-{formatCurrency(monthlyAdvancesTotal)}</span>
+                 <div className="flex flex-col">
+                    <span className="text-sm text-base-content-secondary">Total de Vales (Recuperado)</span>
+                    <span className="text-xl font-bold text-yellow-400">-{formatCurrency(monthlyAdvancesTotal)}</span>
                 </div>
-                <div className="flex justify-between items-center bg-brand-primary/10 text-brand-primary p-4 rounded-lg">
-                    <span className="font-bold text-lg">Pagamento Total do Mês:</span>
-                    <span className="font-bold text-lg">{formatCurrency(grandTotal)}</span>
-                </div>
+                 <div className="flex flex-col md:text-right">
+                    <span className="text-sm text-base-content-secondary">Saída Total de Caixa</span>
+                    <span className="text-2xl font-bold text-brand-primary">{formatCurrency(grandTotal)}</span>
                 </div>
             </div>
-        </>
+        </div>
       </div>
     </div>
   );
