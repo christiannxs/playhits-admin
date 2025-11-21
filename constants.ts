@@ -56,6 +56,7 @@ export const ARTIST_LIST: string[] = [
   'Kelvy Pablo',
   'Laninha show',
   'Mara Pavanelly',
+  'Marcos Levy',
   'Mari & Rayane',
   'Renno',
   'Walfredo',

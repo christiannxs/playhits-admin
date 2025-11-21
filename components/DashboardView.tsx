@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Designer, Task, DesignerType, Advance } from '../types';
@@ -198,7 +199,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                         <th className="p-3">Produzido</th>
                         <th className="p-3">Adiantamentos</th>
                         <th className="p-3 font-bold">Total a Pagar</th>
-                        <th className="p-3 text-center">Status</th>
+                        {isDirector && <th className="p-3 text-center">Status</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -211,15 +212,17 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                             <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
                             <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
                             <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
-                            <td className="p-3 text-center">
-                                <label className="flex items-center justify-center cursor-pointer">
-                                    <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
-                                    <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
-                                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
-                                    </div>
-                                    <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
-                                </label>
-                            </td>
+                            {isDirector && (
+                                <td className="p-3 text-center">
+                                    <label className="flex items-center justify-center cursor-pointer">
+                                        <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
+                                        <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
+                                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
+                                        </div>
+                                        <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
+                                    </label>
+                                </td>
+                            )}
                         </tr>
                     )})}
                 </tbody>
