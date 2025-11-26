@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { UserIcon, LockClosedIcon } from './icons/Icons';
 
@@ -39,7 +40,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
             
             {profileError && (
               <div className="text-sm text-amber-300 bg-amber-900/50 border border-amber-500 p-3 rounded-lg text-center">
-                <p className="font-bold mb-1">Erro de Configuração de Perfil</p>
+                <p className="font-bold mb-1">Aviso do Sistema</p>
                 <p>{profileError}</p>
               </div>
             )}

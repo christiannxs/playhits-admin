@@ -211,9 +211,6 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                                                             <span className="font-medium text-base-content">{task.media_type}</span>
                                                             <span className="text-base-content-secondary">{formatCurrency(task.value)}</span>
                                                         </div>
-                                                        <div className="text-xs text-base-content-secondary mt-1">
-                                                            {task.artist} • {task.social_media}
-                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>

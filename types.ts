@@ -21,9 +21,9 @@ export interface Task {
   due_date: string; // YYYY-MM-DD
   created_at: string; // Supabase default timestamp
   value: number;
-  artist: string;
-  social_media: string;
-  description: string;
+  artist?: string;
+  social_media?: string;
+  description?: string;
 }
 
 // Define um tipo específico para os dados que podem ser atualizados em uma tarefa.

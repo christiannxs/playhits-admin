@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Designer, DesignerType, Advance, Task } from '../types';
 import { formatCurrency, formatDate, getWeekRange, getMonthRange, toLocalDateString } from '../utils/dateUtils';
@@ -10,6 +11,7 @@ interface DesignersViewProps {
   tasks: Task[];
   onAddDesigner: (designerData: any) => Promise<{ success: boolean; message: string }>;
   onUpdateDesigner: (designerData: Designer) => void;
+  onDeleteDesigner: (designerId: string) => void;
   advances: Advance[];
   onAddAdvance: (advanceData: Omit<Advance, 'id'>) => void;
   onDeleteAdvance: (advanceId: string) => void;
@@ -21,7 +23,8 @@ const DesignerCard: React.FC<{
     advances: Advance[];
     onEdit: (designer: Designer) => void; 
     onManageAdvances: (designer: Designer) => void;
-}> = ({ designer, tasks, advances, onEdit, onManageAdvances }) => {
+    onDelete: (designerId: string) => void;
+}> = ({ designer, tasks, advances, onEdit, onManageAdvances, onDelete }) => {
     const today = new Date();
     let balance = 0;
     let periodLabel = '';
@@ -104,6 +107,9 @@ const DesignerCard: React.FC<{
                     </button>
                     <button onClick={() => onEdit(designer)} className="p-2 rounded-full text-base-content-secondary hover:bg-base-300 hover:text-base-content transition-colors" title="Editar Designer">
                         <PencilIcon />
+                    </button>
+                    <button onClick={() => onDelete(designer.id)} className="p-2 rounded-full text-base-content-secondary hover:bg-red-900/50 hover:text-red-500 transition-colors" title="Remover Designer">
+                        <TrashIcon />
                     </button>
                 </div>
             </div>
@@ -195,7 +201,7 @@ const AdvanceModal: React.FC<{
 }
 
 
-const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDesigner, onUpdateDesigner, advances, onAddAdvance, onDeleteAdvance }) => {
+const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDesigner, onUpdateDesigner, onDeleteDesigner, advances, onAddAdvance, onDeleteAdvance }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDesigner, setEditingDesigner] = useState<Designer | null>(null);
@@ -323,7 +329,15 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredDesigners.length > 0 ? (
           filteredDesigners.map(designer => (
-            <DesignerCard key={designer.id} designer={designer} tasks={tasks} advances={advances} onEdit={openEditModal} onManageAdvances={openAdvanceModal} />
+            <DesignerCard 
+                key={designer.id} 
+                designer={designer} 
+                tasks={tasks} 
+                advances={advances} 
+                onEdit={openEditModal} 
+                onManageAdvances={openAdvanceModal} 
+                onDelete={onDeleteDesigner}
+            />
           ))
         ) : (
           <p className="text-base-content-secondary col-span-full text-center py-8">Nenhum designer encontrado.</p>

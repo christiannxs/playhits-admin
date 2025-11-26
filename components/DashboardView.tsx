@@ -11,13 +11,11 @@ interface DashboardViewProps {
   tasks: Task[];
   advances: Advance[];
   loggedInUser: Designer;
-  submissionWindow: { isOpen: boolean; deadline: string | null };
-  onToggleSubmissionWindow: () => void;
 }
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
-    <div className="bg-base-100 p-6 rounded-2xl shadow-md flex items-center space-x-4">
-        <div className="bg-brand-primary/10 p-3 rounded-full">
+    <div className="bg-base-100 p-6 rounded-2xl shadow-md flex items-center space-x-4 h-full">
+        <div className="bg-brand-primary/10 p-3 rounded-full flex-shrink-0">
             {icon}
         </div>
         <div>
@@ -33,8 +31,6 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   tasks,
   advances,
   loggedInUser,
-  submissionWindow,
-  onToggleSubmissionWindow,
 }) => {
   const [selectedDesignerId, setSelectedDesignerId] = useState('overview');
   const [paidStatus, setPaidStatus] = useState<Record<string, boolean>>({});
@@ -47,9 +43,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 
   // Memoized data for the overview mode
   const overviewData = useMemo(() => {
-    const actualDesigners = designers.filter(d => d.type);
-    const freelancers = actualDesigners.filter(d => d.type === DesignerType.Freelancer);
-    const fixedDesigners = actualDesigners.filter(d => d.type === DesignerType.Fixed);
+    // Filtrar apenas Freelancers
+    const freelancers = designers.filter(d => d.type === DesignerType.Freelancer);
     
     // Freelancer weekly reports (for the table)
     const freelancerReports = freelancers.map(designer => {
@@ -70,32 +65,21 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         return { designer, taskTotal, advancesTotal, totalPayment, periodKey };
     });
 
-    // Fixed monthly reports (for the table)
-    const fixedReports = fixedDesigners.map(designer => {
-        const advancesInPeriod = advances.filter(adv =>
-            adv.designer_id === designer.id &&
-            new Date(adv.date) >= monthRange.start &&
-            new Date(adv.date) <= monthRange.end
-        );
-        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-        const totalPayment = (designer.salary || 0) - advancesTotal;
-        const periodKey = `month-${monthRange.start.getFullYear()}-${monthRange.start.getMonth()}`;
-        return { designer, salary: designer.salary || 0, advancesTotal, totalPayment, periodKey };
-    });
-    
     // Stats for the cards
-    const monthlyFixedTotal = fixedDesigners.reduce((sum, d) => sum + (d.salary || 0), 0);
     const tasksThisMonth = tasks.filter(task => {
         const created = new Date(task.created_at);
         return created >= monthRange.start && created <= monthRange.end;
     });
+    
+    // Calcular custo total apenas de freelancers
     const monthlyFreelancerTotal = tasksThisMonth
         .filter(t => freelancers.some(f => f.id === t.designer_id))
         .reduce((sum, task) => sum + task.value, 0);
-    const totalMonthlySpend = monthlyFixedTotal + monthlyFreelancerTotal;
+        
+    const totalMonthlySpend = monthlyFreelancerTotal;
     const completedTasksThisMonth = tasksThisMonth.length;
     
-    return { freelancerReports, fixedReports, totalMonthlySpend, monthlyFixedTotal, monthlyFreelancerTotal, completedTasksThisMonth };
+    return { freelancerReports, totalMonthlySpend, monthlyFreelancerTotal, completedTasksThisMonth };
   }, [designers, tasks, advances, weekRange, monthRange]);
 
   // Memoized data for the specific designer view
@@ -107,51 +91,31 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     let stats = {};
     let recentTasks: Task[] = [];
     let recentAdvances: Advance[] = [];
-    const paymentHistory = designer.type === DesignerType.Freelancer
-        ? calculateWeeklyPaymentHistory(designer.id, tasks, advances)
-        : [];
+    const paymentHistory = calculateWeeklyPaymentHistory(designer.id, tasks, advances);
 
-    if (designer.type === DesignerType.Fixed) {
-        const advancesInPeriod = advances.filter(adv =>
-            adv.designer_id === designer.id &&
-            new Date(adv.date) >= monthRange.start &&
-            new Date(adv.date) <= monthRange.end
-        );
-        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-        const finalPayment = (designer.salary || 0) - advancesTotal;
-        recentTasks = tasks.filter(t => t.designer_id === designer.id && new Date(t.created_at) >= monthRange.start && new Date(t.created_at) <= monthRange.end);
-        recentAdvances = advancesInPeriod;
-        
-        stats = {
-            'Salário Base': formatCurrency(designer.salary || 0),
-            'Adiantamentos (Mês)': `-${formatCurrency(advancesTotal)}`,
-            'Pagamento Final': formatCurrency(finalPayment),
-            'Demandas (Mês)': recentTasks.length.toString(),
-        };
-    } else { // Freelancer
-        const tasksInPeriod = tasks.filter(task => 
-            task.designer_id === designer.id &&
-            new Date(task.created_at) >= weekRange.start &&
-            new Date(task.created_at) <= weekRange.end
-        );
-        const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
-        const advancesInPeriod = advances.filter(adv =>
-            adv.designer_id === designer.id &&
-            new Date(adv.date) >= weekRange.start &&
-            new Date(adv.date) <= weekRange.end
-        );
-        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-        const totalPayment = taskTotal - advancesTotal;
-        recentTasks = tasksInPeriod;
-        recentAdvances = advancesInPeriod;
+    // Lógica exclusiva para Freelancer
+    const tasksInPeriod = tasks.filter(task => 
+        task.designer_id === designer.id &&
+        new Date(task.created_at) >= weekRange.start &&
+        new Date(task.created_at) <= weekRange.end
+    );
+    const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
+    const advancesInPeriod = advances.filter(adv =>
+        adv.designer_id === designer.id &&
+        new Date(adv.date) >= weekRange.start &&
+        new Date(adv.date) <= weekRange.end
+    );
+    const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+    const totalPayment = taskTotal - advancesTotal;
+    recentTasks = tasksInPeriod;
+    recentAdvances = advancesInPeriod;
 
-        stats = {
-            'Produzido (Semana)': formatCurrency(taskTotal),
-            'Adiantamentos (Semana)': `-${formatCurrency(advancesTotal)}`,
-            'A Pagar (Semana)': formatCurrency(totalPayment),
-            'Demandas (Semana)': recentTasks.length.toString(),
-        };
-    }
+    stats = {
+        'Produzido (Semana)': formatCurrency(taskTotal),
+        'Adiantamentos (Semana)': `-${formatCurrency(advancesTotal)}`,
+        'A Pagar (Semana)': formatCurrency(totalPayment),
+        'Demandas (Semana)': recentTasks.length.toString(),
+    };
     
     return { designer, stats, recentTasks, recentAdvances, paymentHistory };
   }, [selectedDesignerId, designers, tasks, advances, weekRange, monthRange]);
@@ -162,28 +126,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 
   const renderOverview = () => (
     <div className="space-y-8" id="print-area">
-      {isDirector && (
-        <div className="bg-base-100 p-6 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
-            <div>
-                <h3 className="text-xl font-bold text-base-content">Envio de Demandas da Semana</h3>
-                <p className={`text-sm ${submissionWindow.isOpen ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {submissionWindow.isOpen && submissionWindow.deadline 
-                        ? `Aberto até ${new Date(submissionWindow.deadline).toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}` 
-                        : 'Fechado'}
-                </p>
-            </div>
-            <button 
-                onClick={onToggleSubmissionWindow} 
-                className={`px-4 py-2 rounded-lg font-semibold text-white transition-colors shadow-sm w-full sm:w-auto ${submissionWindow.isOpen ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'}`}
-            >
-                {submissionWindow.isOpen ? 'Fechar Envios' : 'Abrir Envios'}
-            </button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
         <StatCard title="Gasto Total (Mês)" value={formatCurrency(overviewData.totalMonthlySpend)} icon={<CreditCardIcon className="text-brand-primary" />} />
-        <StatCard title="Custo Fixo (Mês)" value={formatCurrency(overviewData.monthlyFixedTotal)} icon={<UsersIcon className="text-brand-primary" />} />
         <StatCard title="Custo Freelas (Mês)" value={formatCurrency(overviewData.monthlyFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
         <StatCard title="Demandas Concluídas (Mês)" value={overviewData.completedTasksThisMonth.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
       </div>
@@ -229,46 +173,6 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
             </table>
         </div>
       </div>
-
-       <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-        <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos do Mês - Equipe Fixa</h3>
-         <p className="text-sm text-base-content-secondary mb-4">Mês de Referência: {today.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
-        <div className="overflow-x-auto">
-             <table className="w-full text-left">
-                <thead className="border-b-2 border-base-300">
-                    <tr>
-                        <th className="p-3">Designer</th>
-                        <th className="p-3">Salário Base</th>
-                        <th className="p-3">Adiantamentos</th>
-                        <th className="p-3 font-bold">Total a Pagar</th>
-                        <th className="p-3 text-center">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {overviewData.fixedReports.map(report => {
-                        const paymentKey = `${report.designer.id}-${report.periodKey}`;
-                        const isPaid = paidStatus[paymentKey];
-                        return (
-                        <tr key={report.designer.id} className="border-b border-base-300/50">
-                            <td className="p-3 font-semibold">{report.designer.name}</td>
-                            <td className="p-3">{formatCurrency(report.salary)}</td>
-                            <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
-                            <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
-                            <td className="p-3 text-center">
-                                 <label className="flex items-center justify-center cursor-pointer">
-                                    <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
-                                    <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
-                                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
-                                    </div>
-                                    <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
-                                </label>
-                            </td>
-                        </tr>
-                    )})}
-                </tbody>
-            </table>
-        </div>
-      </div>
     </div>
   );
 
@@ -280,8 +184,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         </div>
       );
     }
-    const { designer, stats, recentTasks, recentAdvances, paymentHistory } = selectedDesignerData;
-    const periodLabel = designer.type === DesignerType.Fixed ? 'Mês' : 'Semana';
+    const { designer, stats, recentTasks, paymentHistory } = selectedDesignerData;
+    const periodLabel = 'Semana';
 
     return (
       <div className="space-y-8" id="print-area">
@@ -301,7 +205,6 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                 <table className="w-full text-left text-sm">
                     <thead className="border-b-2 border-base-300">
                       <tr>
-                        <th className="p-2">Artista</th>
                         <th className="p-2">Mídia</th>
                         <th className="p-2">Entrega</th>
                         <th className="p-2 text-right">Valor</th>
@@ -310,7 +213,6 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                     <tbody>
                       {recentTasks.map(task => (
                         <tr key={task.id} className="border-b border-base-300/50">
-                          <td className="p-2 font-semibold">{task.artist}</td>
                           <td className="p-2">{task.media_type}</td>
                           <td className="p-2">{formatDate(task.due_date)}</td>
                           <td className="p-2 text-right font-medium">{formatCurrency(task.value)}</td>
@@ -322,7 +224,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {designer.type === DesignerType.Freelancer && paymentHistory.length > 0 && (
+        {paymentHistory.length > 0 && (
              <div className="bg-base-100 p-6 rounded-2xl shadow-md">
                 <h3 className="text-xl font-bold mb-4 text-base-content">Histórico de Pagamentos Semanais</h3>
                 <div className="overflow-x-auto">
@@ -363,7 +265,11 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
             className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
           >
             <option value="overview">Visão Geral</option>
-            {designers.filter(d => d.type).sort((a,b) => a.name.localeCompare(b.name)).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {designers
+                .filter(d => d.type === DesignerType.Freelancer)
+                .sort((a,b) => a.name.localeCompare(b.name))
+                .map(d => <option key={d.id} value={d.id}>{d.name}</option>
+            )}
           </select>
            <button onClick={() => window.print()} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
               <PrinterIcon />
@@ -378,79 +284,75 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 };
 
 
-const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUser' | 'submissionWindow' | 'advances'>> = ({ tasks, loggedInUser, submissionWindow, advances }) => {
-    const isFixed = loggedInUser.type === DesignerType.Fixed;
+const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUser' | 'advances'>> = ({ tasks, loggedInUser, advances }) => {
+    // Dashboard simplificado assumindo comportamento de Freelancer, já que Fixos não são mais o foco deste dashboard.
     const today = new Date();
     
     let paymentStatCard: React.ReactNode;
     let completedTasksStatCard: React.ReactNode;
-    const paymentHistory = loggedInUser.type === DesignerType.Freelancer
-        ? calculateWeeklyPaymentHistory(loggedInUser.id, tasks, advances)
-        : [];
+    const periodLabel = 'esta Semana';
+    let currentPeriodTasks: Task[] = [];
 
-    if (isFixed) {
-        const monthRange = getMonthRange(today);
-        const myTasksThisMonth = tasks.filter(task => {
-            if (task.designer_id !== loggedInUser.id) return false;
-            const created = new Date(task.created_at);
-            return created >= monthRange.start && created <= monthRange.end;
-        });
+    const paymentHistory = calculateWeeklyPaymentHistory(loggedInUser.id, tasks, advances);
 
-        const advancesInPeriod = advances.filter(adv =>
-            adv.designer_id === loggedInUser.id &&
-            new Date(adv.date) >= monthRange.start &&
-            new Date(adv.date) <= monthRange.end
-        );
-        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-        const finalPayment = (loggedInUser.salary || 0) - advancesTotal;
-        
-        paymentStatCard = <StatCard title="Pagamento a Receber (Mês)" value={formatCurrency(finalPayment)} icon={<MoneyIcon className="text-brand-primary" />} />;
-        completedTasksStatCard = <StatCard title="Demandas Concluídas (Mês)" value={myTasksThisMonth.length.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />;
-    } else { // Freelancer
-        const weekRange = getWeekRange(today);
-        const myTasksThisWeek = tasks.filter(task => {
-            if (task.designer_id !== loggedInUser.id) return false;
-            const created = new Date(task.created_at);
-            return created >= weekRange.start && created <= weekRange.end;
-        });
-        const weeklyTaskTotal = myTasksThisWeek.reduce((sum, task) => sum + task.value, 0);
+    const weekRange = getWeekRange(today);
+    currentPeriodTasks = tasks.filter(task => {
+        if (task.designer_id !== loggedInUser.id) return false;
+        const created = new Date(task.created_at);
+        return created >= weekRange.start && created <= weekRange.end;
+    });
+    const weeklyTaskTotal = currentPeriodTasks.reduce((sum, task) => sum + task.value, 0);
 
-        const advancesInPeriod = advances.filter(adv =>
-            adv.designer_id === loggedInUser.id &&
-            new Date(adv.date) >= weekRange.start &&
-            new Date(adv.date) <= weekRange.end
-        );
-        const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-        const weeklyPayment = weeklyTaskTotal - advancesTotal;
+    const advancesInPeriod = advances.filter(adv =>
+        adv.designer_id === loggedInUser.id &&
+        new Date(adv.date) >= weekRange.start &&
+        new Date(adv.date) <= weekRange.end
+    );
+    const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+    const weeklyPayment = weeklyTaskTotal - advancesTotal;
 
-        paymentStatCard = <StatCard title="Pagamento da Semana" value={formatCurrency(weeklyPayment)} icon={<MoneyIcon className="text-brand-primary" />} />;
-        completedTasksStatCard = <StatCard title="Demandas Concluídas (Semana)" value={myTasksThisWeek.length.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />;
-    }
+    paymentStatCard = <StatCard title="Pagamento da Semana" value={formatCurrency(weeklyPayment)} icon={<MoneyIcon className="text-brand-primary" />} />;
+    completedTasksStatCard = <StatCard title="Demandas Concluídas (Semana)" value={currentPeriodTasks.length.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />;
+
+    // Calculate Task Quantities Breakdown
+    const taskBreakdown = useMemo(() => {
+        return currentPeriodTasks.reduce((acc, task) => {
+            acc[task.media_type] = (acc[task.media_type] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+    }, [currentPeriodTasks]);
+
 
     return (
         <div className="space-y-8">
             <h2 className="text-3xl font-bold text-base-content">Olá, {loggedInUser.name.split(' ')[0]}!</h2>
             
-            <div className={`p-6 rounded-2xl shadow-md flex items-center space-x-4 ${submissionWindow.isOpen ? 'bg-green-900/50 border border-green-500' : 'bg-yellow-900/50 border border-yellow-500'}`}>
-                <div className={`p-3 rounded-full ${submissionWindow.isOpen ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
-                    <ClockIcon className={submissionWindow.isOpen ? 'text-green-400' : 'text-yellow-400'} />
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold text-base-content">Envio de Demandas</h3>
-                    {submissionWindow.isOpen && submissionWindow.deadline ? (
-                         <p className="text-green-300">O período para enviar suas demandas e garantir o pagamento está aberto! O prazo final é <strong>{new Date(submissionWindow.deadline).toLocaleString('pt-BR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}</strong>.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paymentStatCard}
+                {completedTasksStatCard}
+                <div className="bg-base-100 p-6 rounded-2xl shadow-md h-full">
+                    <div className="flex items-center space-x-3 mb-4">
+                        <div className="bg-blue-500/10 p-2 rounded-full">
+                             <CheckCircleIcon className="text-blue-500 h-5 w-5"/>
+                        </div>
+                        <h3 className="font-bold text-base-content">Resumo de Produção ({periodLabel})</h3>
+                    </div>
+                    {Object.keys(taskBreakdown).length > 0 ? (
+                        <div className="space-y-2">
+                             {Object.entries(taskBreakdown).map(([mediaType, count]) => (
+                                <div key={mediaType} className="flex justify-between items-center bg-base-200/50 p-2 rounded-lg text-sm">
+                                    <span className="text-base-content-secondary">{mediaType}</span>
+                                    <span className="font-bold text-base-content badge badge-ghost">{count}</span>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
-                        <p className="text-yellow-300">O período para enviar demandas está fechado. Aguarde o diretor abrir o sistema na sexta-feira.</p>
+                        <p className="text-sm text-base-content-secondary italic">Nenhuma demanda registrada ainda.</p>
                     )}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {paymentStatCard}
-                {completedTasksStatCard}
-            </div>
-
-            {loggedInUser.type === DesignerType.Freelancer && paymentHistory.length > 0 && (
+            {paymentHistory.length > 0 && (
                 <div className="bg-base-100 p-6 rounded-2xl shadow-md">
                     <h3 className="text-xl font-bold mb-4 text-base-content">Histórico de Pagamentos Semanais</h3>
                     <div className="overflow-x-auto">
@@ -478,31 +380,29 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                 </div>
             )}
 
-            {loggedInUser.type === DesignerType.Freelancer && (
-                <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                    <h3 className="text-xl font-bold mb-4 text-base-content">Proposta p/ Designers 2025 (PHD)</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="border-b-2 border-base-300">
-                                <tr>
-                                    <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Mídia</th>
-                                    <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Descrição</th>
-                                    <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider text-right">Valor</th>
+            <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+                <h3 className="text-xl font-bold mb-4 text-base-content">Proposta p/ Designers 2025 (PHD)</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="border-b-2 border-base-300">
+                            <tr>
+                                <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Mídia</th>
+                                <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Descrição</th>
+                                <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider text-right">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.values(MEDIA_PRICES).map(media => (
+                                <tr key={media.name} className="border-b border-base-300/50">
+                                    <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">{media.name}</td>
+                                    <td className="p-3 text-base-content-secondary text-sm">{media.description}</td>
+                                    <td className="p-3 font-semibold text-base-content text-right align-top">{formatCurrency(media.price)}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {Object.values(MEDIA_PRICES).map(media => (
-                                    <tr key={media.name} className="border-b border-base-300/50">
-                                        <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">{media.name}</td>
-                                        <td className="p-3 text-base-content-secondary text-sm">{media.description}</td>
-                                        <td className="p-3 font-semibold text-base-content text-right align-top">{formatCurrency(media.price)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </div>
         </div>
     )
 }

@@ -52,10 +52,9 @@ const App: React.FC = () => {
   const [loggedInUser, setLoggedInUser] = useState<Designer | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginProfileError, setLoginProfileError] = useState('');
-  const [submissionWindow, setSubmissionWindow] = useState<{isOpen: boolean; deadline: string | null}>({ isOpen: false, deadline: null });
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Lógica de inicialização e gerenciamento de estado global da janela de envio.
+  // Lógica de inicialização.
   useEffect(() => {
     const loadSessionAndData = async () => {
       setLoading(true);
@@ -69,19 +68,6 @@ const App: React.FC = () => {
             await supabase.auth.signOut();
             setLoggedInUser(null);
             return;
-          }
-
-          // Busca a configuração global da janela de envio do banco de dados.
-          const { data: config, error: configError } = await supabase
-            .from('app_config')
-            .select('submission_is_open, submission_deadline')
-            .eq('id', 1)
-            .single();
-
-          if (configError) {
-            console.error("Erro ao carregar configuração do app:", configError);
-          } else if (config) {
-            setSubmissionWindow({ isOpen: config.submission_is_open, deadline: config.submission_deadline });
           }
 
           const { data: userProfile, error: profileError } = await supabase
@@ -120,8 +106,15 @@ const App: React.FC = () => {
           setTasks([]);
           setAdvances([]);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Erro crítico durante o carregamento da sessão:", error);
+        
+        let errorMessage = error.message || 'Erro desconhecido';
+        if (errorMessage === 'Failed to fetch') {
+            errorMessage = 'Falha na conexão com o servidor. Verifique sua internet.';
+        }
+
+        setLoginProfileError(`Erro ao carregar dados: ${errorMessage}`);
         await supabase.auth.signOut();
         setLoggedInUser(null);
       } finally {
@@ -136,25 +129,8 @@ const App: React.FC = () => {
       loadSessionAndData();
     });
 
-    // Listener de Realtime para a tabela de configuração global.
-    // Atualiza a UI de todos os clientes instantaneamente quando um diretor altera o estado.
-    const configChannel = supabase
-      .channel('app_config_changes')
-      // FIX: The `.on()` method for Supabase realtime channels is not generic.
-      // The type argument has been removed to fix the "Untyped function calls may not accept type arguments" error.
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'app_config', filter: 'id=eq.1' },
-        (payload) => {
-          const { submission_is_open, submission_deadline } = payload.new;
-          setSubmissionWindow({ isOpen: submission_is_open, deadline: submission_deadline });
-        }
-      )
-      .subscribe();
-
     return () => {
       subscription?.unsubscribe();
-      supabase.removeChannel(configChannel);
     };
   }, []);
   
@@ -162,49 +138,30 @@ const App: React.FC = () => {
   const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
     setLoginProfileError('');
     const email = `${username.toLowerCase()}@playhits.local`;
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) {
-      console.error('Erro no login:', error.message);
-      return { success: false, message: 'Usuário ou senha inválidos.' };
+    
+    try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+            console.error('Erro no login:', error);
+            if (error.message && error.message.includes('Failed to fetch')) {
+                 return { success: false, message: 'Erro de conexão com o servidor. Verifique sua internet.' };
+            }
+            return { success: false, message: 'Usuário ou senha inválidos.' };
+        }
+        return { success: true, message: '' };
+    } catch (err: any) {
+         console.error('Exceção no login:', err);
+         if (err.message === 'Failed to fetch') {
+             return { success: false, message: 'Erro de conexão com o servidor.' };
+         }
+        return { success: false, message: 'Ocorreu um erro inesperado ao tentar entrar.' };
     }
-    return { success: true, message: '' };
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setLoggedInUser(null);
   };
-
-  const toggleSubmissionWindow = useCallback(async () => {
-    const currentlyOpen = submissionWindow.isOpen;
-    
-    let newIsOpen: boolean;
-    let newDeadline: string | null;
-
-    if (currentlyOpen) {
-        newIsOpen = false;
-        newDeadline = null;
-    } else {
-        newIsOpen = true;
-        const now = new Date();
-        const day = now.getDay();
-        const diff = day > 5 ? 6 : 5 - day;
-        const deadline = new Date(now);
-        deadline.setDate(now.getDate() + diff);
-        deadline.setHours(16, 0, 0, 0);
-        newDeadline = deadline.toISOString();
-    }
-    
-    const { error } = await supabase
-      .from('app_config')
-      .update({ submission_is_open: newIsOpen, submission_deadline: newDeadline })
-      .eq('id', 1);
-    
-    if (error) {
-        console.error("Erro ao atualizar o status de envio:", error);
-        setApiError("Falha ao alterar o status de envio. Verifique se você tem permissão e tente novamente.");
-    }
-  }, [submissionWindow.isOpen]);
 
   const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => {
     setApiError(null);
@@ -344,6 +301,11 @@ const App: React.FC = () => {
                     return { success: false, message: `Erro do servidor (status ${error.context.status}): ${textError}` };
                 }
             }
+             // Captura genérica de erro de fetch na function
+            if (error.message === 'Failed to fetch') {
+                 return { success: false, message: 'Erro de conexão: Não foi possível contatar o servidor (Edge Function). Verifique se a função está implantada e acessível.' };
+            }
+
             return { success: false, message: `Erro de comunicação: ${error.message}` };
         }
         
@@ -357,6 +319,9 @@ const App: React.FC = () => {
 
     } catch (e: any) {
         console.error('Erro inesperado (possivelmente timeout) ao adicionar designer:', e);
+         if (e.message === 'Failed to fetch') {
+             return { success: false, message: 'Erro de conexão: Não foi possível contatar o servidor.' };
+         }
         return { success: false, message: e.message || 'Ocorreu um erro inesperado.' };
     }
   };
@@ -371,6 +336,23 @@ const App: React.FC = () => {
     else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
   };
   
+  const deleteDesigner = async (designerId: string) => {
+    if (window.confirm('Tem certeza que deseja remover este designer? Isso removerá o acesso do usuário e todos os dados associados do painel.')) {
+        setApiError(null);
+        try {
+            const { error } = await supabase.from('designers').delete().eq('id', designerId);
+            if (error) {
+                console.error('Erro ao remover designer:', error);
+                setApiError(`Falha ao remover designer: ${error.message}. Talvez existam demandas associadas que impedem a exclusão.`);
+            } else {
+                setDesigners(prev => prev.filter(d => d.id !== designerId));
+            }
+        } catch (error: any) {
+             setApiError(`Erro inesperado ao remover designer: ${error.message}`);
+        }
+    }
+  };
+
   const addAdvance = async (advanceData: Omit<Advance, 'id'>) => {
     setApiError(null);
     const { data, error } = await supabase.from('advances').insert(advanceData).select().single();
@@ -400,13 +382,13 @@ const App: React.FC = () => {
 
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} submissionWindow={submissionWindow} onToggleSubmissionWindow={toggleSubmissionWindow} />;
+        return <DashboardView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
       case 'tasks':
         if (isFinancial) {
           setActiveView('dashboard');
           return null;
         }
-        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} submissionWindowOpen={submissionWindow.isOpen} />;
+        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} />;
       case 'reports':
         if (!isDirector && !isFinancial) {
             setActiveView('dashboard');
@@ -418,7 +400,16 @@ const App: React.FC = () => {
             setActiveView('dashboard');
             return null;
          }
-        return <DesignersView designers={designers} tasks={tasks} onAddDesigner={addDesigner} onUpdateDesigner={updateDesigner} advances={advances} onAddAdvance={addAdvance} onDeleteAdvance={deleteAdvance} />;
+        return <DesignersView 
+            designers={designers} 
+            tasks={tasks} 
+            onAddDesigner={addDesigner} 
+            onUpdateDesigner={updateDesigner} 
+            onDeleteDesigner={deleteDesigner}
+            advances={advances} 
+            onAddAdvance={addAdvance} 
+            onDeleteAdvance={deleteAdvance} 
+        />;
       case 'sql':
         if (!isDirector) {
           setActiveView('dashboard');

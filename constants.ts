@@ -43,29 +43,3 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
     price: 50.00 
   },
 };
-
-export const ARTIST_LIST: string[] = [
-  'A dama',
-  'Briola',
-  'Cesinha Garcia',
-  'Felipão',
-  'Felipe grilo',
-  'Forró dos 3',
-  'Ju Moura',
-  'Kelly ollliveira',
-  'Kelvy Pablo',
-  'Laninha show',
-  'Mara Pavanelly',
-  'Marcos Levy',
-  'Mari & Rayane',
-  'Renno',
-  'Walfredo',
-];
-
-export const SOCIAL_MEDIA_LIST: string[] = [
-  'Pâmela Emilly',
-  'Livia Xavier',
-  'Jully Morais',
-  'Pietra Carvalho',
-  'Guardekey Louisy',
-];
