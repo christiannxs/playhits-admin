@@ -4,12 +4,13 @@ import { Designer, Task, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, ClockIcon, PencilIcon, TrashIcon } from './icons/Icons';
+import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon } from './icons/Icons';
 
 interface TasksViewProps {
   tasks: Task[];
   designers: Designer[];
   onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => void;
+  onAddTasksBulk: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => void;
   onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
   loggedInUser: Designer;
@@ -67,10 +68,11 @@ const TaskTable: React.FC<{
 );
 
 
-const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUpdateTask, onDeleteTask, loggedInUser }) => {
+const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, loggedInUser }) => {
   const isDirector = loggedInUser.role === 'Diretor de Arte';
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> = { 
@@ -79,9 +81,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
     due_date: '', 
     artist: '-', 
     social_media: '-',
-    description: '',
+    description: '-',
   };
   const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'>>(initialFormState);
+  
+  const [bulkFormData, setBulkFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { quantity: number }>({
+    ...initialFormState,
+    quantity: 1,
+  });
   
   const [filterDesigner, setFilterDesigner] = useState<string>(isDirector ? 'all' : loggedInUser.id);
   
@@ -97,6 +104,18 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
     setIsModalOpen(true);
   };
 
+  const openBulkModal = () => {
+    setBulkFormData({
+      ...initialFormState,
+      quantity: 1,
+    });
+    setIsBulkModalOpen(true);
+  };
+
+  const closeBulkModal = () => {
+    setIsBulkModalOpen(false);
+  };
+
   const openEditModal = (task: Task) => {
     setEditingTask(task);
     setFormData({
@@ -105,7 +124,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
       due_date: task.due_date.split('T')[0],
       artist: task.artist || '-',
       social_media: task.social_media || '-',
-      description: task.description || '',
+      description: task.description || '-',
     });
     setIsModalOpen(true);
   };
@@ -137,6 +156,23 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
         onAddTask(payload);
       }
       closeModal();
+    }
+  };
+
+  const handleBulkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bulkFormData.designer_id && bulkFormData.media_type && bulkFormData.due_date && bulkFormData.quantity > 0) {
+      const payload = {
+        designer_id: bulkFormData.designer_id,
+        media_type: bulkFormData.media_type,
+        due_date: bulkFormData.due_date,
+        artist: bulkFormData.artist || '-',
+        social_media: bulkFormData.social_media || '-',
+        description: '-',
+      };
+
+      onAddTasksBulk(payload, bulkFormData.quantity);
+      closeBulkModal();
     }
   };
 
@@ -179,13 +215,22 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold text-base-content">Demandas</h2>
         {isDirector && (
+          <div className="flex items-center gap-3">
             <button 
-            onClick={openAddModal} 
-            className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm"
+              onClick={openBulkModal} 
+              className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
             >
-            <PlusIcon />
-            <span className="ml-2">Nova Demanda</span>
+              <SquaresPlusIcon />
+              <span className="ml-2">Adicionar em Massa</span>
             </button>
+            <button 
+              onClick={openAddModal} 
+              className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm"
+            >
+              <PlusIcon />
+              <span className="ml-2">Nova Demanda</span>
+            </button>
+          </div>
         )}
       </div>
       
@@ -283,8 +328,91 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onUp
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
             <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
           </div>
-          <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">{editingTask ? 'Salvar Alterações' : 'Salvar Demanda'}</button>
+          <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">{editingTask ? 'Salvar Alterações' : 'Adicionar'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isBulkModalOpen} onClose={closeBulkModal} title="Adicionar Demandas em Massa">
+        <form onSubmit={handleBulkSubmit} className="space-y-4">
+          <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-300">
+              <strong>Como usar:</strong> Preencha os dados abaixo e especifique a quantidade. Serão criadas múltiplas demandas idênticas com os mesmos parâmetros.
+            </p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
+            <select 
+              value={bulkFormData.designer_id} 
+              onChange={e => setBulkFormData({ ...bulkFormData, designer_id: e.target.value })} 
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required
+            >
+              <option value="">Selecione um designer</option>
+              {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
+            <select 
+              value={bulkFormData.media_type} 
+              onChange={e => setBulkFormData({ ...bulkFormData, media_type: e.target.value })} 
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required
+            >
+              <option value="">Selecione um tipo</option>
+              {Object.entries(MEDIA_PRICES).map(([key, media]) => (
+                <option key={key} value={key}>
+                  {media.name} - {formatCurrency(media.price)}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
+            <input 
+              type="date" 
+              value={bulkFormData.due_date} 
+              onChange={e => setBulkFormData({ ...bulkFormData, due_date: e.target.value })} 
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required 
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-base-content-secondary mb-1">Quantidade</label>
+            <input 
+              type="number" 
+              min="1" 
+              max="100" 
+              value={bulkFormData.quantity} 
+              onChange={e => setBulkFormData({ ...bulkFormData, quantity: parseInt(e.target.value) || 1 })} 
+              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              required 
+            />
+            <p className="text-xs text-base-content-secondary mt-1">
+              Número de demandas idênticas a serem criadas (máximo: 100)
+            </p>
+          </div>
+          
+          <div className="bg-base-200/50 rounded-lg p-3 mt-4">
+            <p className="text-sm text-base-content-secondary">
+              <strong>Resumo:</strong> Serão criadas <strong className="text-base-content">{bulkFormData.quantity}</strong> demanda(s) do tipo <strong className="text-base-content">{bulkFormData.media_type || 'N/A'}</strong> para <strong className="text-base-content">{bulkFormData.designer_id ? designers.find(d => d.id === bulkFormData.designer_id)?.name || 'N/A' : 'N/A'}</strong> com entrega em <strong className="text-base-content">{bulkFormData.due_date || 'N/A'}</strong>.
+            </p>
+          </div>
+          
+          <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
+            <button 
+              type="submit" 
+              className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              disabled={!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1}
+            >
+              Adicionar {bulkFormData.quantity} Demanda(s)
+            </button>
           </div>
         </form>
       </Modal>

@@ -193,6 +193,41 @@ const App: React.FC = () => {
     }
   };
 
+  const addTasksBulk = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => {
+    setApiError(null);
+    try {
+      const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
+      const tasksToInsert = Array(quantity).fill(null).map(() => ({
+        ...taskData,
+        value,
+      }));
+      
+      const { data, error } = await supabase.from('tasks').insert(tasksToInsert).select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        setTasks(prev => [...data, ...prev]);
+      }
+    } catch (error: any) {
+      console.error('Erro detalhado ao adicionar demandas em massa:', error);
+      let errorMessage = 'Ocorreu um erro inesperado.';
+      if (error && typeof error === 'object' && 'message' in error) {
+          const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+          errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
+      } else {
+          try {
+            errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
+          } catch {
+            errorMessage = `Ocorreu um erro não-JSON: ${error}`;
+          }
+      }
+      setApiError(`Falha ao adicionar demandas em massa.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
+    }
+  };
+
   const updateTask = async (taskId: string, updateData: UpdateTaskPayload) => {
     setApiError(null);
     try {
@@ -388,7 +423,7 @@ const App: React.FC = () => {
           setActiveView('dashboard');
           return null;
         }
-        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} />;
+        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onAddTasksBulk={addTasksBulk} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} />;
       case 'reports':
         if (!isDirector && !isFinancial) {
             setActiveView('dashboard');
