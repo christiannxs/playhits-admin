@@ -42,4 +42,9 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
     description: 'PLOTAGEM',
     price: 50.00 
   },
+  'Plantão Final de Semana': { 
+    name: 'Plantão Final de Semana', 
+    description: 'PLANTÃO FINAL DE SEMANA',
+    price: 125.00 
+  },
 };

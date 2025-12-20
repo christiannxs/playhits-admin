@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Designer, Task, DesignerType, Advance } from '../types';
-import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString } from '../utils/dateUtils';
+import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString } from '../utils/dateUtils';
 import { MoneyIcon, UsersIcon, CheckCircleIcon, CreditCardIcon, ClockIcon, PrinterIcon, CheckIcon } from './icons/Icons';
 import { MEDIA_PRICES } from '../constants';
 
@@ -26,6 +26,8 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
 );
 
 
+type PeriodType = 'week' | 'month' | 'year';
+
 const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   designers,
   tasks,
@@ -33,54 +35,58 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   loggedInUser,
 }) => {
   const [selectedDesignerId, setSelectedDesignerId] = useState('overview');
-  const [paidStatus, setPaidStatus] = useState<Record<string, boolean>>({});
+  const [periodType, setPeriodType] = useState<PeriodType>('week');
 
   const today = new Date();
   const weekRange = getWeekRange(today);
   const monthRange = getMonthRange(today);
+  const yearRange = getYearRange(today);
 
   const isDirector = loggedInUser.role === 'Diretor de Arte';
+
+  // Get the current period range based on selection
+  const currentPeriodRange = periodType === 'week' ? weekRange : periodType === 'month' ? monthRange : yearRange;
 
   // Memoized data for the overview mode
   const overviewData = useMemo(() => {
     // Filtrar apenas Freelancers
     const freelancers = designers.filter(d => d.type === DesignerType.Freelancer);
     
-    // Freelancer weekly reports (for the table)
+    // Freelancer reports (for the table) - usando o período selecionado
     const freelancerReports = freelancers.map(designer => {
         const tasksInPeriod = tasks.filter(task =>
             task.designer_id === designer.id &&
-            new Date(task.created_at) >= weekRange.start &&
-            new Date(task.created_at) <= weekRange.end
+            new Date(task.created_at) >= currentPeriodRange.start &&
+            new Date(task.created_at) <= currentPeriodRange.end
         );
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
         const advancesInPeriod = advances.filter(adv =>
             adv.designer_id === designer.id &&
-            new Date(adv.date) >= weekRange.start &&
-            new Date(adv.date) <= weekRange.end
+            new Date(adv.date) >= currentPeriodRange.start &&
+            new Date(adv.date) <= currentPeriodRange.end
         );
         const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
         const totalPayment = taskTotal - advancesTotal;
-        const periodKey = `week-${toLocalDateString(weekRange.start)}`;
+        const periodKey = `${periodType}-${toLocalDateString(currentPeriodRange.start)}`;
         return { designer, taskTotal, advancesTotal, totalPayment, periodKey };
     });
 
-    // Stats for the cards
-    const tasksThisMonth = tasks.filter(task => {
+    // Stats for the cards - usando o período selecionado
+    const tasksInPeriod = tasks.filter(task => {
         const created = new Date(task.created_at);
-        return created >= monthRange.start && created <= monthRange.end;
+        return created >= currentPeriodRange.start && created <= currentPeriodRange.end;
     });
     
     // Calcular custo total apenas de freelancers
-    const monthlyFreelancerTotal = tasksThisMonth
+    const periodFreelancerTotal = tasksInPeriod
         .filter(t => freelancers.some(f => f.id === t.designer_id))
         .reduce((sum, task) => sum + task.value, 0);
         
-    const totalMonthlySpend = monthlyFreelancerTotal;
-    const completedTasksThisMonth = tasksThisMonth.length;
+    const totalPeriodSpend = periodFreelancerTotal;
+    const completedTasksInPeriod = tasksInPeriod.length;
     
-    return { freelancerReports, totalMonthlySpend, monthlyFreelancerTotal, completedTasksThisMonth };
-  }, [designers, tasks, advances, weekRange, monthRange]);
+    return { freelancerReports, totalPeriodSpend, periodFreelancerTotal, completedTasksInPeriod };
+  }, [designers, tasks, advances, currentPeriodRange, periodType]);
 
   // Memoized data for the specific designer view
   const selectedDesignerData = useMemo(() => {
@@ -93,88 +99,95 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     let recentAdvances: Advance[] = [];
     const paymentHistory = calculateWeeklyPaymentHistory(designer.id, tasks, advances);
 
-    // Lógica exclusiva para Freelancer
+    // Lógica exclusiva para Freelancer - usando o período selecionado
     const tasksInPeriod = tasks.filter(task => 
         task.designer_id === designer.id &&
-        new Date(task.created_at) >= weekRange.start &&
-        new Date(task.created_at) <= weekRange.end
+        new Date(task.created_at) >= currentPeriodRange.start &&
+        new Date(task.created_at) <= currentPeriodRange.end
     );
     const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
     const advancesInPeriod = advances.filter(adv =>
         adv.designer_id === designer.id &&
-        new Date(adv.date) >= weekRange.start &&
-        new Date(adv.date) <= weekRange.end
+        new Date(adv.date) >= currentPeriodRange.start &&
+        new Date(adv.date) <= currentPeriodRange.end
     );
     const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
     const totalPayment = taskTotal - advancesTotal;
     recentTasks = tasksInPeriod;
     recentAdvances = advancesInPeriod;
 
+    const periodLabel = periodType === 'week' ? 'Semana' : periodType === 'month' ? 'Mês' : 'Ano';
     stats = {
-        'Produzido (Semana)': formatCurrency(taskTotal),
-        'Adiantamentos (Semana)': `-${formatCurrency(advancesTotal)}`,
-        'A Pagar (Semana)': formatCurrency(totalPayment),
-        'Demandas (Semana)': recentTasks.length.toString(),
+        [`Produzido (${periodLabel})`]: formatCurrency(taskTotal),
+        [`Adiantamentos (${periodLabel})`]: `-${formatCurrency(advancesTotal)}`,
+        [`A Pagar (${periodLabel})`]: formatCurrency(totalPayment),
+        [`Demandas (${periodLabel})`]: recentTasks.length.toString(),
     };
     
     return { designer, stats, recentTasks, recentAdvances, paymentHistory };
-  }, [selectedDesignerId, designers, tasks, advances, weekRange, monthRange]);
+  }, [selectedDesignerId, designers, tasks, advances, currentPeriodRange, periodType]);
 
-  const handleTogglePaid = (key: string) => {
-    setPaidStatus(prev => ({ ...prev, [key]: !prev[key] }));
+  const getPeriodLabel = () => {
+    if (periodType === 'week') return 'Semana';
+    if (periodType === 'month') return 'Mês';
+    return 'Ano';
   };
 
-  const renderOverview = () => (
-    <div className="space-y-8" id="print-area">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
-        <StatCard title="Gasto Total (Mês)" value={formatCurrency(overviewData.totalMonthlySpend)} icon={<CreditCardIcon className="text-brand-primary" />} />
-        <StatCard title="Custo Freelas (Mês)" value={formatCurrency(overviewData.monthlyFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
-        <StatCard title="Demandas Concluídas (Mês)" value={overviewData.completedTasksThisMonth.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
-      </div>
-
-      <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-        <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos da Semana - Freelancers</h3>
-        <p className="text-sm text-base-content-secondary mb-4">Período: {formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
-        <div className="overflow-x-auto">
-            <table className="w-full text-left">
-                <thead className="border-b-2 border-base-300">
-                    <tr>
-                        <th className="p-3">Designer</th>
-                        <th className="p-3">Produzido</th>
-                        <th className="p-3">Adiantamentos</th>
-                        <th className="p-3 font-bold">Total a Pagar</th>
-                        {isDirector && <th className="p-3 text-center">Status</th>}
-                    </tr>
-                </thead>
-                <tbody>
-                    {overviewData.freelancerReports.filter(r => r.totalPayment !== 0 || r.taskTotal > 0).map(report => {
-                        const paymentKey = `${report.designer.id}-${report.periodKey}`;
-                        const isPaid = paidStatus[paymentKey];
-                        return (
-                        <tr key={report.designer.id} className="border-b border-base-300/50">
-                            <td className="p-3 font-semibold">{report.designer.name}</td>
-                            <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
-                            <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
-                            <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
-                            {isDirector && (
-                                <td className="p-3 text-center">
-                                    <label className="flex items-center justify-center cursor-pointer">
-                                        <input type="checkbox" className="hidden" checked={isPaid} onChange={() => handleTogglePaid(paymentKey)} />
-                                        <div className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${isPaid ? 'bg-green-500' : 'bg-base-300'}`}>
-                                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isPaid ? 'translate-x-6' : ''}`}></div>
-                                        </div>
-                                        <span className={`ml-2 text-sm font-semibold no-print ${isPaid ? 'text-green-400' : 'text-base-content-secondary'}`}>{isPaid ? 'Pago' : 'Pendente'}</span>
-                                    </label>
-                                </td>
-                            )}
-                        </tr>
-                    )})}
-                </tbody>
-            </table>
+  const renderOverview = () => {
+    const periodLabel = getPeriodLabel();
+    return (
+      <div className="space-y-8" id="print-area">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+          <StatCard title={`Gasto Total (${periodLabel})`} value={formatCurrency(overviewData.totalPeriodSpend)} icon={<CreditCardIcon className="text-brand-primary" />} />
+          <StatCard title={`Custo Freelas (${periodLabel})`} value={formatCurrency(overviewData.periodFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
+          <StatCard title={`Demandas Concluídas (${periodLabel})`} value={overviewData.completedTasksInPeriod.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
         </div>
+
+        {isDirector && (
+          <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <div>
+                <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos - Freelancers</h3>
+                <p className="text-sm text-base-content-secondary">Período: {formatDate(toLocalDateString(currentPeriodRange.start))} a {formatDate(toLocalDateString(currentPeriodRange.end))}</p>
+              </div>
+              <select
+                value={periodType}
+                onChange={e => setPeriodType(e.target.value as PeriodType)}
+                className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+              >
+                <option value="week">Semana</option>
+                <option value="month">Mês</option>
+                <option value="year">Ano</option>
+              </select>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead className="border-b-2 border-base-300">
+                        <tr>
+                            <th className="p-3">Designer</th>
+                            <th className="p-3">Produzido</th>
+                            <th className="p-3">Adiantamentos</th>
+                            <th className="p-3 font-bold">Total a Pagar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {overviewData.freelancerReports.map(report => {
+                            return (
+                            <tr key={report.designer.id} className="border-b border-base-300/50">
+                                <td className="p-3 font-semibold">{report.designer.name}</td>
+                                <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
+                                <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
+                                <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
+                            </tr>
+                        )})}
+                    </tbody>
+                </table>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderDesignerDetail = () => {
     if (!selectedDesignerData) {
@@ -185,7 +198,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
       );
     }
     const { designer, stats, recentTasks, paymentHistory } = selectedDesignerData;
-    const periodLabel = 'Semana';
+    const periodLabel = getPeriodLabel();
 
     return (
       <div className="space-y-8" id="print-area">

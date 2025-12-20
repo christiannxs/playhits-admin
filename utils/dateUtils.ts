@@ -56,6 +56,21 @@ export const getMonthRange = (date: Date): { start: Date; end: Date } => {
     return { start, end };
 };
 
+export const getYearRange = (date: Date): { start: Date; end: Date } => {
+    const yearStr = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: TIMEZONE }).format(date);
+    const year = parseInt(yearStr);
+
+    const start = new Date(`${year}-01-01T00:00:00.000-03:00`);
+    
+    // To get the end of the year, we go to the start of the next year and subtract one millisecond.
+    const nextYearDate = new Date(start);
+    nextYearDate.setUTCFullYear(start.getUTCFullYear() + 1);
+    
+    const end = new Date(nextYearDate.getTime() - 1);
+    
+    return { start, end };
+};
+
 export const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };

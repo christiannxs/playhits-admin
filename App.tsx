@@ -9,7 +9,6 @@ import TasksView from './components/TasksView';
 import ReportsView from './components/ReportsView';
 import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
-import SqlLabView from './components/SqlLabView';
 import { supabase, configurationError } from './lib/supabaseClient';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
@@ -445,12 +444,6 @@ const App: React.FC = () => {
             onAddAdvance={addAdvance} 
             onDeleteAdvance={deleteAdvance} 
         />;
-      case 'sql':
-        if (!isDirector) {
-          setActiveView('dashboard');
-          return null;
-        }
-        return <SqlLabView />;
       default:
         setActiveView('dashboard');
         return null;
