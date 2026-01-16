@@ -201,14 +201,33 @@ const App: React.FC = () => {
         value,
       }));
       
+      console.log(`Tentando inserir ${quantity} demandas em massa:`, { taskData, quantity, tasksToInsert });
+      
       const { data, error } = await supabase.from('tasks').insert(tasksToInsert).select();
       
       if (error) {
+        console.error('Erro ao inserir demandas em massa:', error);
         throw error;
       }
       
+      console.log('Resposta do Supabase após inserção em massa:', { data, dataLength: data?.length });
+      
       if (data && data.length > 0) {
-        setTasks(prev => [...data, ...prev]);
+        console.log(`Adicionando ${data.length} demandas ao estado. Esperado: ${quantity}`);
+        setTasks(prev => {
+          const updated = [...data, ...prev];
+          console.log(`Estado atualizado. Total de demandas: ${updated.length}`);
+          return updated;
+        });
+      } else {
+        console.warn('Nenhuma demanda foi retornada pelo Supabase após a inserção em massa');
+        // Mesmo sem dados retornados, pode ser que as tarefas tenham sido inseridas
+        // Vamos recarregar as tarefas do banco para garantir
+        const { data: refreshedTasks, error: refreshError } = await supabase.from('tasks').select('*');
+        if (!refreshError && refreshedTasks) {
+          setTasks(refreshedTasks);
+          console.log('Tarefas recarregadas do banco de dados');
+        }
       }
     } catch (error: any) {
       console.error('Erro detalhado ao adicionar demandas em massa:', error);

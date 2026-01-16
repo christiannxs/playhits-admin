@@ -26,7 +26,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
 );
 
 
-type PeriodType = 'week' | 'month' | 'year';
+type PeriodType = 'week' | 'month' | 'year' | 'custom';
 
 const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   designers,
@@ -36,6 +36,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 }) => {
   const [selectedDesignerId, setSelectedDesignerId] = useState('overview');
   const [periodType, setPeriodType] = useState<PeriodType>('week');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   const today = new Date();
   const weekRange = getWeekRange(today);
@@ -45,7 +47,20 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   const isDirector = loggedInUser.role === 'Diretor de Arte';
 
   // Get the current period range based on selection
-  const currentPeriodRange = periodType === 'week' ? weekRange : periodType === 'month' ? monthRange : yearRange;
+  const currentPeriodRange = useMemo(() => {
+    if (periodType === 'custom') {
+      if (customStartDate && customEndDate) {
+        const start = new Date(`${customStartDate}T00:00:00.000-03:00`);
+        const end = new Date(`${customEndDate}T23:59:59.999-03:00`);
+        return { start, end };
+      }
+      // Fallback para semana atual se custom estiver selecionado mas datas não preenchidas
+      return weekRange;
+    }
+    if (periodType === 'week') return weekRange;
+    if (periodType === 'month') return monthRange;
+    return yearRange;
+  }, [periodType, customStartDate, customEndDate, weekRange, monthRange, yearRange]);
 
   // Memoized data for the overview mode
   const overviewData = useMemo(() => {
@@ -130,7 +145,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   const getPeriodLabel = () => {
     if (periodType === 'week') return 'Semana';
     if (periodType === 'month') return 'Mês';
-    return 'Ano';
+    if (periodType === 'year') return 'Ano';
+    return 'Personalizado';
   };
 
   const renderOverview = () => {
@@ -150,15 +166,43 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                 <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos - Freelancers</h3>
                 <p className="text-sm text-base-content-secondary">Período: {formatDate(toLocalDateString(currentPeriodRange.start))} a {formatDate(toLocalDateString(currentPeriodRange.end))}</p>
               </div>
-              <select
-                value={periodType}
-                onChange={e => setPeriodType(e.target.value as PeriodType)}
-                className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
-              >
-                <option value="week">Semana</option>
-                <option value="month">Mês</option>
-                <option value="year">Ano</option>
-              </select>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={periodType}
+                  onChange={e => {
+                    setPeriodType(e.target.value as PeriodType);
+                    if (e.target.value !== 'custom') {
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                    }
+                  }}
+                  className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                >
+                  <option value="week">Semana</option>
+                  <option value="month">Mês</option>
+                  <option value="year">Ano</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+                {periodType === 'custom' && (
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={e => setCustomStartDate(e.target.value)}
+                      className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                      placeholder="Data inicial"
+                    />
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={e => setCustomEndDate(e.target.value)}
+                      className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                      placeholder="Data final"
+                      min={customStartDate}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left">

@@ -171,6 +171,30 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
         description: '-',
       };
 
+      // Ajustar filtros para garantir que as novas demandas apareçam
+      // Ajustar filtro de designer se necessário
+      if (isDirector && filterDesigner !== 'all' && filterDesigner !== bulkFormData.designer_id) {
+        setFilterDesigner(bulkFormData.designer_id);
+      }
+      
+      // Ajustar filtro de data para incluir a data de entrega
+      const dueDateStr = bulkFormData.due_date;
+      if (startDate && endDate) {
+        // Se a data de entrega estiver fora do range atual, ajustar o range
+        if (dueDateStr < startDate || dueDateStr > endDate) {
+          // Expandir o range para incluir a nova data
+          const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
+          const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
+          setStartDate(newStartDate);
+          setEndDate(newEndDate);
+        }
+      } else {
+        // Se não há filtro de data, definir para a semana da data de entrega
+        const weekRange = getWeekRange(new Date(dueDateStr));
+        setStartDate(toLocalDateString(weekRange.start));
+        setEndDate(toLocalDateString(weekRange.end));
+      }
+
       onAddTasksBulk(payload, bulkFormData.quantity);
       closeBulkModal();
     }
