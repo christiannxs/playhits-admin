@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Designer, DesignerType, Advance, Task } from '../types';
 import { formatCurrency, formatDate, getWeekRange, getMonthRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
-import { SearchIcon, PencilIcon, CashIcon, TrashIcon, PlusIcon } from './icons/Icons';
+import { SearchIcon, PencilIcon, CashIcon, TrashIcon, PlusIcon, UsersIcon } from './icons/Icons';
 
 interface DesignersViewProps {
   designers: Designer[];
@@ -77,7 +77,7 @@ const DesignerCard: React.FC<{
     const balanceColor = balance < 0 ? 'text-red-400' : 'text-green-400';
 
     return (
-        <div className="bg-base-100 p-5 rounded-xl shadow-md flex flex-col justify-between h-full">
+        <div className="bg-base-100/80 backdrop-blur-sm p-5 rounded-2xl shadow-card border border-base-300/40 flex flex-col justify-between h-full hover:shadow-card-hover hover:border-base-300/60 transition-smooth">
             <div>
                 <h4 className="text-lg font-bold text-base-content">{designer.name}</h4>
                 <p className="text-sm text-base-content-secondary">{designer.role}</p>
@@ -307,22 +307,30 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-base-content">Equipe</h2>
-        <button onClick={openAddModal} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
-          <PlusIcon />
-          <span className="ml-2">Novo Designer</span>
-        </button>
-      </div>
+      <header className="pb-2 border-b border-base-300/40">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-2">
+              <UsersIcon className="h-8 w-8 text-brand-primary hidden sm:block" />
+              Equipe
+            </h2>
+            <p className="text-sm text-base-content-secondary mt-1">Designers, freelancers e equipe fixa</p>
+          </div>
+          <button onClick={openAddModal} className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand flex-shrink-0">
+            <PlusIcon />
+            <span className="ml-2">Novo Designer</span>
+          </button>
+        </div>
+      </header>
 
       <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary" />
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary pointer-events-none" />
         <input
             type="text"
             placeholder="Buscar designer por nome..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 pl-10 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+            className="w-full py-2.5 pl-10 pr-4 rounded-xl bg-base-100/80 border border-base-300 text-base-content placeholder-base-content-secondary/60 focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none transition-smooth"
         />
       </div>
 

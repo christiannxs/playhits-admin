@@ -2,6 +2,7 @@
 import React from 'react';
 import { ViewType, Designer } from '../types';
 import { ChartPieIcon, ClipboardDocumentListIcon, PresentationChartBarIcon, UsersIcon, LogoutIcon, MusicNoteIcon } from './icons/Icons';
+import logophd from '../images/logophd.png';
 
 
 interface HeaderProps {
@@ -25,14 +26,14 @@ const NavItem: React.FC<{
         e.preventDefault();
         onClick();
       }}
-      className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-smooth ${
         isActive
-          ? 'bg-brand-primary text-white shadow-md'
-          : 'text-base-content-secondary hover:bg-base-300 hover:text-base-content'
+          ? 'bg-brand-primary text-white shadow-brand'
+          : 'text-base-content-secondary hover:bg-base-300/80 hover:text-base-content'
       }`}
     >
-      {icon}
-      <span className="ml-3 font-medium">{label}</span>
+      <span className={isActive ? 'text-white' : ''}>{icon}</span>
+      <span>{label}</span>
     </a>
   </li>
 );
@@ -57,19 +58,33 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
       }
   }
 
+  const initials = loggedInUser?.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?';
+
   return (
-    <aside className="w-full lg:w-64 bg-base-100 shadow-lg lg:flex-shrink-0 flex flex-col">
-      <div className="p-6 flex items-center justify-center lg:justify-start border-b border-base-300">
-        <h1 className="text-xl font-bold text-base-content whitespace-nowrap">
-            <span className="text-brand-primary">Play Hits</span> Gerenciamento
+    <aside className="w-full lg:w-72 bg-base-100/95 backdrop-blur-sm shadow-sidebar lg:flex-shrink-0 flex flex-col border-r border-base-300/50">
+      <div className="p-6 flex items-center justify-center lg:justify-start border-b border-base-300/40">
+        <h1 className="flex items-center">
+          <img src={logophd} alt="Play Hits Gerenciamento" className="h-14 w-auto object-contain" />
         </h1>
       </div>
-       <div className="px-4 pt-4 mt-2">
-        <p className="text-lg font-semibold text-base-content">{loggedInUser?.name}</p>
-        <p className="text-sm text-base-content-secondary">{loggedInUser?.role}</p>
+      <div className="px-5 py-4">
+        <div className="rounded-xl bg-base-200/90 px-4 py-3.5 border border-base-300/50 flex items-center gap-3 transition-smooth hover:border-base-300/70">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-brand-primary/20 text-brand-primary font-bold text-sm flex items-center justify-center">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-base-content truncate">{loggedInUser?.name}</p>
+            <p className="text-xs text-base-content-secondary mt-0.5">{loggedInUser?.role}</p>
+          </div>
+        </div>
       </div>
-      <nav className="p-4 flex-1">
-        <ul className="space-y-2">
+      <nav className="px-4 flex-1">
+        <ul className="space-y-1">
           {navItems.map((item) => (
             <NavItem
               key={item.view}
@@ -82,12 +97,12 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
           ))}
         </ul>
       </nav>
-      <div className="p-4 border-t border-base-300">
-         <NavItem
-            label="Sair"
-            icon={<LogoutIcon />}
-            isActive={false}
-            onClick={onLogout}
+      <div className="p-4 border-t border-base-300/50">
+        <NavItem
+          label="Sair"
+          icon={<LogoutIcon />}
+          isActive={false}
+          onClick={onLogout}
         />
       </div>
     </aside>

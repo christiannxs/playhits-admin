@@ -14,26 +14,26 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 
 const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
   <div className="min-h-screen flex flex-col bg-base-200">
-    <main className="flex-1 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl p-8 space-y-6 bg-base-100 rounded-2xl shadow-lg">
-          <div className="flex flex-col items-center space-y-4">
-              <h1 className="text-3xl font-bold text-center text-red-500">
-                Configuração Incompleta
-              </h1>
-              <p className="text-base-content-secondary text-center">
-                O aplicativo não pode se conectar ao banco de dados porque as credenciais do Supabase não foram fornecidas.
-              </p>
-              <div className="w-full p-4 bg-base-200 rounded-lg text-base-content text-center font-mono">
-                {message}
-              </div>
-              <p className="text-sm text-base-content-secondary text-center pt-4">
-                Por favor, siga as instruções no arquivo <strong>lib/supabaseClient.ts</strong> para encontrar e adicionar sua URL e Chave Pública (anon). Depois de salvar o arquivo, o aplicativo será recarregado automaticamente.
-              </p>
+    <main className="flex-1 flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl p-8 sm:p-10 space-y-6 bg-base-100 rounded-3xl shadow-card border border-base-300/50">
+        <div className="flex flex-col items-center space-y-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center text-red-400">
+            Configuração Incompleta
+          </h1>
+          <p className="text-base-content-secondary text-center text-sm">
+            O aplicativo não pode se conectar ao banco de dados porque as credenciais do Supabase não foram fornecidas.
+          </p>
+          <div className="w-full p-4 bg-base-200 rounded-xl text-base-content text-center font-mono text-sm border border-base-300/50">
+            {message}
           </div>
+          <p className="text-sm text-base-content-secondary text-center pt-2">
+            Siga as instruções em <strong>lib/supabaseClient.ts</strong> para adicionar a URL e a Chave Pública (anon). O app será recarregado automaticamente após salvar.
+          </p>
+        </div>
       </div>
     </main>
-    <footer className="bg-base-100 text-center p-4 text-xs text-base-content-secondary no-print uppercase">
-        aplicativo desenvolvido por Christian Rodrigues - todos direitos reservados - phd marketing inteligente
+    <footer className="bg-base-100 border-t border-base-300/50 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
+      aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
     </footer>
   </div>
 );
@@ -471,8 +471,9 @@ const App: React.FC = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-base-200">
-        <div className="text-base-content">Carregando...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 gap-6">
+        <div className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin" aria-hidden />
+        <p className="text-base-content-secondary font-medium">Carregando...</p>
       </div>
     );
   }
@@ -484,23 +485,25 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       <Header activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} loggedInUser={loggedInUser} />
-      <div className="flex-1 flex flex-col">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-base-200 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0">
+        <main className="main-content-scroll flex-1 p-6 sm:p-8 lg:p-10 overflow-y-auto">
+          <div className="max-w-7xl mx-auto w-full">
           {apiError && (
-            <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg mb-6 relative">
-              <h4 className="font-bold">Ocorreu um Erro</h4>
-              <pre className="text-sm whitespace-pre-wrap font-sans">{apiError}</pre>
-              <button 
-                onClick={() => setApiError(null)} 
-                className="absolute top-3 right-4 text-red-200 hover:text-white text-2xl font-bold"
+            <div className="bg-red-900/40 border border-red-500/60 text-red-200 p-5 rounded-xl mb-8 relative">
+              <h4 className="font-semibold mb-2">Ocorreu um Erro</h4>
+              <pre className="text-sm whitespace-pre-wrap font-sans opacity-90">{apiError}</pre>
+              <button
+                onClick={() => setApiError(null)}
+                className="absolute top-4 right-4 text-red-300 hover:text-white text-xl font-bold leading-none p-1 rounded-lg hover:bg-red-500/20 transition-colors"
                 aria-label="Fechar aviso"
               >&times;</button>
             </div>
           )}
           {renderView()}
+          </div>
         </main>
-        <footer className="bg-base-100 text-center p-4 text-xs text-base-content-secondary no-print uppercase">
-          aplicativo desenvolvido por Christian Rodrigues - todos direitos reservados - phd marketing inteligente
+        <footer className="bg-base-100/80 border-t border-base-300/50 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">
+          aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
         </footer>
       </div>
     </div>

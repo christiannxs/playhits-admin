@@ -1,28 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Play Hits Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['DM Sans', 'system-ui', 'sans-serif'],
+            },
             colors: {
               'brand-primary': '#DC2626',
               'brand-secondary': '#F87171',
-              'base-100': '#1F2937',
-              'base-200': '#111827',
-              'base-300': '#374151',
-              'base-content': '#F9FAFB',
-              'base-content-secondary': '#9CA3AF',
+              'base-100': '#1a1d24',
+              'base-200': '#0f1115',
+              'base-300': '#252a33',
+              'base-content': '#f1f5f9',
+              'base-content-secondary': '#94a3b8',
+            },
+            borderRadius: {
+              'xl': '1rem',
+              '2xl': '1.25rem',
+              '3xl': '1.5rem',
+            },
+            boxShadow: {
+              'card': '0 4px 24px -4px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.04)',
+              'card-hover': '0 12px 40px -8px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06)',
+              'sidebar': '4px 0 24px -4px rgba(0,0,0,0.2)',
+              'glow': '0 0 0 1px rgba(220, 38, 38, 0.2)',
+              'brand': '0 4px 14px -2px rgba(220, 38, 38, 0.25)',
             },
           }
         }
       }
     </script>
     <style>
+      body {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        min-height: 100vh;
+        background: linear-gradient(160deg, #0f1115 0%, #151a22 40%, #0f1115 100%);
+        background-attachment: fixed;
+      }
+      /* Scrollbar suave na área de conteúdo */
+      .main-content-scroll::-webkit-scrollbar { width: 8px; }
+      .main-content-scroll::-webkit-scrollbar-track { background: rgba(15,17,21,0.5); border-radius: 4px; }
+      .main-content-scroll::-webkit-scrollbar-thumb { background: #252a33; border-radius: 4px; }
+      .main-content-scroll::-webkit-scrollbar-thumb:hover { background: #3b4252; }
+      /* Transições suaves */
+      .transition-smooth { transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s; }
       @media print {
         body * {
           visibility: hidden;

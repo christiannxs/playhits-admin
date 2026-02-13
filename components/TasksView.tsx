@@ -4,7 +4,7 @@ import { Designer, Task, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon } from './icons/Icons';
+import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardDocumentListIcon } from './icons/Icons';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -23,7 +23,7 @@ const TaskTable: React.FC<{
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
 }> = ({ tasks, isDirector, designerMap, onEdit, onDelete }) => (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-b-2xl border border-t-0 border-base-300/50">
       <table className="w-full text-left">
           <thead className="border-b border-base-300 bg-base-200/50">
               <tr>
@@ -236,67 +236,77 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-base-content">Demandas</h2>
-        {isDirector && (
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={openBulkModal} 
-              className="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <SquaresPlusIcon />
-              <span className="ml-2">Adicionar em Massa</span>
-            </button>
-            <button 
-              onClick={openAddModal} 
-              className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm"
-            >
-              <PlusIcon />
-              <span className="ml-2">Nova Demanda</span>
-            </button>
+      <header className="pb-2 border-b border-base-300/40">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-2">
+              <ClipboardDocumentListIcon className="h-8 w-8 text-brand-primary hidden sm:block" />
+              Demandas
+            </h2>
+            <p className="text-sm text-base-content-secondary mt-1">
+              {isDirector ? 'Gerencie e filtre demandas por designer e período' : 'Suas demandas atribuídas'}
+            </p>
           </div>
-        )}
-      </div>
-      
+          {isDirector && (
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button 
+                onClick={openBulkModal} 
+                className="flex items-center bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-sm"
+              >
+                <SquaresPlusIcon />
+                <span className="ml-2">Adicionar em Massa</span>
+              </button>
+              <button 
+                onClick={openAddModal} 
+                className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand"
+              >
+                <PlusIcon />
+                <span className="ml-2">Nova Demanda</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
       {!isDirector && (
-          <div className="bg-base-100 p-4 rounded-lg shadow-sm border border-base-300">
+          <div className="bg-base-100/80 backdrop-blur-sm p-4 rounded-xl border border-base-300/50">
               <p className="text-base-content-secondary text-sm">
                   A gestão de demandas é realizada exclusivamente pelo Diretor de Arte. Você pode visualizar suas demandas atribuídas abaixo.
               </p>
           </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 bg-base-100 p-4 rounded-2xl shadow-md">
-        <span className="font-semibold text-base-content-secondary">Filtros:</span>
+      <div className="flex flex-wrap items-center gap-4 bg-base-100/80 backdrop-blur-sm p-4 rounded-2xl shadow-card border border-base-300/40">
+        <span className="font-semibold text-base-content-secondary text-sm uppercase tracking-wide">Filtros</span>
         {isDirector && (
-          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary">
+          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm">
             <option value="all">Todos os Designers</option>
             {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         )}
         <div className="flex items-center gap-2">
-            <label htmlFor="start-date" className="text-sm font-medium text-base-content-secondary">Entrega de:</label>
+            <label htmlFor="start-date" className="text-sm font-medium text-base-content-secondary whitespace-nowrap">Entrega de:</label>
             <input
                 id="start-date"
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm"
             />
         </div>
         <div className="flex items-center gap-2">
-            <label htmlFor="end-date" className="text-sm font-medium text-base-content-secondary">Até:</label>
+            <label htmlFor="end-date" className="text-sm font-medium text-base-content-secondary whitespace-nowrap">Até:</label>
             <input
                 id="end-date"
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm"
             />
         </div>
         <button 
           onClick={() => { setStartDate(''); setEndDate(''); }}
-          className="px-3 py-2 text-sm text-base-content-secondary hover:bg-base-300 rounded-lg transition-colors"
+          className="px-3 py-2 text-sm text-base-content-secondary hover:bg-base-300 hover:text-base-content rounded-xl transition-smooth"
           title="Limpar filtro de data"
         >
           Mostrar Todas
@@ -308,8 +318,9 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           Object.keys(groupedTasks).map((weekKey) => {
             const group = groupedTasks[weekKey];
             return (
-              <details key={weekKey} className="bg-base-100 rounded-2xl shadow-md overflow-hidden" open>
-                <summary className="p-4 font-bold text-lg cursor-pointer hover:bg-base-200/50 list-inside">
+              <details key={weekKey} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 overflow-hidden group" open>
+                <summary className="p-4 font-bold text-base cursor-pointer hover:bg-base-200/50 list-none flex items-center gap-2 transition-smooth rounded-t-2xl">
+                  <ClockIcon className="h-5 w-5 text-brand-primary flex-shrink-0" />
                   Semana de {formatDate(group.weekRange.start.toISOString())} a {formatDate(group.weekRange.end.toISOString())}
                 </summary>
                 <TaskTable
@@ -323,7 +334,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             );
           })
         ) : (
-          <div className="bg-base-100 rounded-2xl shadow-md text-center p-8 text-base-content-secondary">
+          <div className="bg-base-100 rounded-2xl shadow-card border border-base-300/40 text-center p-8 text-base-content-secondary">
             Nenhuma demanda encontrada para os filtros selecionados.
           </div>
         )}

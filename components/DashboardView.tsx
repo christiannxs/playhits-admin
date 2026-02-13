@@ -14,13 +14,13 @@ interface DashboardViewProps {
 }
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
-    <div className="bg-base-100 p-6 rounded-2xl shadow-md flex items-center space-x-4 h-full">
-        <div className="bg-brand-primary/10 p-3 rounded-full flex-shrink-0">
+    <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 flex items-center gap-4 h-full hover:shadow-card-hover hover:border-base-300/60 transition-smooth">
+        <div className="bg-brand-primary/15 p-3.5 rounded-xl flex-shrink-0 text-brand-primary">
             {icon}
         </div>
-        <div>
-            <p className="text-sm text-base-content-secondary">{title}</p>
-            <p className="text-2xl font-bold text-base-content">{value}</p>
+        <div className="min-w-0">
+            <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wide">{title}</p>
+            <p className="text-xl sm:text-2xl font-bold text-base-content truncate mt-0.5">{value}</p>
         </div>
     </div>
 );
@@ -160,24 +160,27 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         </div>
 
         {isDirector && (
-          <div className="bg-base-100 p-6 rounded-2xl shadow-md">
+          <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
-                <h3 className="text-xl font-bold mb-2 text-base-content">Pagamentos - Freelancers</h3>
-                <p className="text-sm text-base-content-secondary">Período: {formatDate(toLocalDateString(currentPeriodRange.start))} a {formatDate(toLocalDateString(currentPeriodRange.end))}</p>
+                <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
+                  <UsersIcon className="h-5 w-5 text-brand-primary" />
+                  Pagamentos - Freelancers
+                </h3>
+                <p className="text-sm text-base-content-secondary mt-1">Período: {formatDate(toLocalDateString(currentPeriodRange.start))} a {formatDate(toLocalDateString(currentPeriodRange.end))}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <select
-                  value={periodType}
-                  onChange={e => {
-                    setPeriodType(e.target.value as PeriodType);
-                    if (e.target.value !== 'custom') {
-                      setCustomStartDate('');
-                      setCustomEndDate('');
-                    }
-                  }}
-                  className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
-                >
+          <select
+            value={periodType}
+            onChange={e => {
+              setPeriodType(e.target.value as PeriodType);
+              if (e.target.value !== 'custom') {
+                setCustomStartDate('');
+                setCustomEndDate('');
+              }
+            }}
+            className="px-4 py-2.5 rounded-xl bg-base-100 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
+          >
                   <option value="week">Semana</option>
                   <option value="month">Mês</option>
                   <option value="year">Ano</option>
@@ -189,14 +192,14 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                       type="date"
                       value={customStartDate}
                       onChange={e => setCustomStartDate(e.target.value)}
-                      className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                      className="px-4 py-2.5 rounded-xl bg-base-100 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
                       placeholder="Data inicial"
                     />
                     <input
                       type="date"
                       value={customEndDate}
                       onChange={e => setCustomEndDate(e.target.value)}
-                      className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
+                      className="px-4 py-2.5 rounded-xl bg-base-100 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
                       placeholder="Data final"
                       min={customStartDate}
                     />
@@ -204,26 +207,25 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                 )}
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-base-300/50">
                 <table className="w-full text-left">
-                    <thead className="border-b-2 border-base-300">
+                    <thead className="border-b border-base-300 bg-base-200/50">
                         <tr>
-                            <th className="p-3">Designer</th>
-                            <th className="p-3">Produzido</th>
-                            <th className="p-3">Adiantamentos</th>
-                            <th className="p-3 font-bold">Total a Pagar</th>
+                            <th className="p-4 font-semibold text-base-content-secondary">Designer</th>
+                            <th className="p-4 font-semibold text-base-content-secondary">Produzido</th>
+                            <th className="p-4 font-semibold text-base-content-secondary">Adiantamentos</th>
+                            <th className="p-4 font-semibold text-base-content-secondary">Total a Pagar</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {overviewData.freelancerReports.map(report => {
-                            return (
-                            <tr key={report.designer.id} className="border-b border-base-300/50">
-                                <td className="p-3 font-semibold">{report.designer.name}</td>
-                                <td className="p-3 text-green-400">{formatCurrency(report.taskTotal)}</td>
-                                <td className="p-3 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
-                                <td className="p-3 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
+                        {overviewData.freelancerReports.map(report => (
+                            <tr key={report.designer.id} className="border-b border-base-300/50 last:border-b-0 hover:bg-base-200/30 transition-colors">
+                                <td className="p-4 font-semibold text-base-content">{report.designer.name}</td>
+                                <td className="p-4 text-green-400">{formatCurrency(report.taskTotal)}</td>
+                                <td className="p-4 text-yellow-400">-{formatCurrency(report.advancesTotal)}</td>
+                                <td className="p-4 font-bold text-brand-primary">{formatCurrency(report.totalPayment)}</td>
                             </tr>
-                        )})}
+                        ))}
                     </tbody>
                 </table>
             </div>
@@ -235,11 +237,11 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 
   const renderDesignerDetail = () => {
     if (!selectedDesignerData) {
-      return (
-        <div className="bg-base-100 p-8 rounded-2xl text-center">
-            <p className="text-base-content-secondary">Designer não encontrado. Selecione outro na lista.</p>
-        </div>
-      );
+    return (
+      <div className="bg-base-100 p-8 rounded-2xl shadow-card border border-base-300/40 text-center">
+        <p className="text-base-content-secondary">Designer não encontrado. Selecione outro na lista.</p>
+      </div>
+    );
     }
     const { designer, stats, recentTasks, paymentHistory } = selectedDesignerData;
     const periodLabel = getPeriodLabel();
@@ -248,15 +250,18 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
       <div className="space-y-8" id="print-area">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Object.entries(stats).map(([key, value]) => (
-                <div key={key} className="bg-base-100 p-6 rounded-2xl shadow-md">
-                    <p className="text-sm text-base-content-secondary">{key}</p>
-                    <p className="text-2xl font-bold text-base-content">{value}</p>
+                <div key={key} className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 transition-smooth hover:shadow-card-hover">
+                    <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wide">{key}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-base-content mt-0.5">{value}</p>
                 </div>
             ))}
         </div>
-        
-        <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-          <h3 className="text-xl font-bold mb-4 text-base-content">Demandas Recentes ({periodLabel})</h3>
+
+        <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+          <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
+            <CheckCircleIcon className="h-5 w-5 text-brand-primary" />
+            Demandas Recentes ({periodLabel})
+          </h3>
           <div className="overflow-x-auto">
             {recentTasks.length > 0 ? (
                 <table className="w-full text-left text-sm">
@@ -282,8 +287,11 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         </div>
 
         {paymentHistory.length > 0 && (
-             <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-base-content">Histórico de Pagamentos Semanais</h3>
+             <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+                <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
+                    <ClockIcon className="h-5 w-5 text-brand-primary" />
+                    Histórico de Pagamentos Semanais
+                </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="border-b-2 border-base-300">
@@ -309,32 +317,44 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   };
   
 
+  const pageTitle = selectedDesignerId !== 'overview' && selectedDesignerData
+    ? `Análise: ${selectedDesignerData.designer.name}`
+    : (isDirector ? 'Dashboard do Diretor' : 'Painel Financeiro');
+  const pageSubtitle = selectedDesignerId === 'overview'
+    ? (isDirector ? 'Visão geral de gastos e pagamentos por período' : 'Resumo financeiro e demandas')
+    : `Detalhes do período selecionado`;
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-bold text-base-content">
-          {selectedDesignerId !== 'overview' && selectedDesignerData ? `Análise: ${selectedDesignerData.designer.name}` : (isDirector ? 'Dashboard do Diretor' : 'Painel Financeiro')}
-        </h2>
-        <div className="flex items-center gap-4 no-print">
-          <select
-            value={selectedDesignerId}
-            onChange={e => setSelectedDesignerId(e.target.value)}
-            className="p-2 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary"
-          >
-            <option value="overview">Visão Geral</option>
-            {designers
-                .filter(d => d.type === DesignerType.Freelancer)
-                .sort((a,b) => a.name.localeCompare(b.name))
-                .map(d => <option key={d.id} value={d.id}>{d.name}</option>
-            )}
-          </select>
-           <button onClick={() => window.print()} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
+      <header className="pb-2 border-b border-base-300/40">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-base-content">
+              {pageTitle}
+            </h2>
+            <p className="text-sm text-base-content-secondary mt-1">{pageSubtitle}</p>
+          </div>
+          <div className="flex items-center gap-3 no-print flex-shrink-0">
+            <select
+              value={selectedDesignerId}
+              onChange={e => setSelectedDesignerId(e.target.value)}
+              className="px-4 py-2.5 rounded-xl bg-base-100 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm"
+            >
+              <option value="overview">Visão Geral</option>
+              {designers
+                  .filter(d => d.type === DesignerType.Freelancer)
+                  .sort((a,b) => a.name.localeCompare(b.name))
+                  .map(d => <option key={d.id} value={d.id}>{d.name}</option>
+              )}
+            </select>
+            <button onClick={() => window.print()} className="flex items-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">
               <PrinterIcon />
-              <span className="ml-2">Imprimir</span>
-           </button>
+              <span>Imprimir</span>
+            </button>
+          </div>
         </div>
-      </div>
-      
+      </header>
+
       {selectedDesignerId === 'overview' ? renderOverview() : renderDesignerDetail()}
     </div>
   );
@@ -382,15 +402,18 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
 
     return (
         <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-base-content">Olá, {loggedInUser.name.split(' ')[0]}!</h2>
-            
+            <header className="pb-2 border-b border-base-300/40">
+                <h2 className="text-2xl sm:text-3xl font-bold text-base-content">Olá, {loggedInUser.name.split(' ')[0]}!</h2>
+                <p className="text-sm text-base-content-secondary mt-1">Seu resumo da semana e histórico de pagamentos</p>
+            </header>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {paymentStatCard}
                 {completedTasksStatCard}
-                <div className="bg-base-100 p-6 rounded-2xl shadow-md h-full">
-                    <div className="flex items-center space-x-3 mb-4">
-                        <div className="bg-blue-500/10 p-2 rounded-full">
-                             <CheckCircleIcon className="text-blue-500 h-5 w-5"/>
+                <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 h-full transition-smooth hover:shadow-card-hover">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-blue-500/15 p-2.5 rounded-xl">
+                             <CheckCircleIcon className="text-blue-400 h-5 w-5"/>
                         </div>
                         <h3 className="font-bold text-base-content">Resumo de Produção ({periodLabel})</h3>
                     </div>
@@ -410,8 +433,11 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
             </div>
 
             {paymentHistory.length > 0 && (
-                <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                    <h3 className="text-xl font-bold mb-4 text-base-content">Histórico de Pagamentos Semanais</h3>
+                <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+                    <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
+                        <ClockIcon className="h-5 w-5 text-brand-primary" />
+                        Histórico de Pagamentos Semanais
+                    </h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b-2 border-base-300">
@@ -437,8 +463,11 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                 </div>
             )}
 
-            <div className="bg-base-100 p-6 rounded-2xl shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-base-content">Proposta p/ Designers 2025 (PHD)</h3>
+            <div className="bg-base-100/80 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+                <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
+                    <MoneyIcon className="h-5 w-5 text-brand-primary" />
+                    Proposta p/ Designers 2025 (PHD)
+                </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="border-b-2 border-base-300">

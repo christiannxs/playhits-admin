@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, DesignerType, Advance } from '../types';
 import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory } from '../utils/dateUtils';
-import { ClipboardCopyIcon, CalendarIcon, UserIcon, CashIcon, CheckCircleIcon } from './icons/Icons';
+import { ClipboardCopyIcon, CalendarIcon, UserIcon, CashIcon, CheckCircleIcon, PresentationChartBarIcon } from './icons/Icons';
 
 interface ReportsViewProps {
   designers: Designer[];
@@ -149,19 +149,27 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
-        <h2 className="text-3xl font-bold text-base-content">Relatórios Kanban</h2>
-        <div className="flex items-center gap-4">
-           <div className="relative">
-             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="p-2 pl-10 border rounded-lg bg-base-100 border-base-300 focus:ring-brand-primary focus:border-brand-primary text-base-content"/>
-             <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary" />
-           </div>
-           <button onClick={handleCopyReport} className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors shadow-sm">
-             <ClipboardCopyIcon />
-             <span className="ml-2">Copiar TXT</span>
-           </button>
+      <header className="pb-2 border-b border-base-300/40 no-print">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-2">
+              <PresentationChartBarIcon className="h-8 w-8 text-brand-primary hidden sm:block" />
+              Relatórios Kanban
+            </h2>
+            <p className="text-sm text-base-content-secondary mt-1">Semanal (freelancers) e mensal (equipe fixa)</p>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+             <div className="relative">
+               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="py-2.5 pl-10 pr-4 border rounded-xl bg-base-100 border-base-300 focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-base-content text-sm"/>
+               <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary pointer-events-none" />
+             </div>
+             <button onClick={handleCopyReport} className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">
+               <ClipboardCopyIcon />
+               <span className="ml-2">Copiar TXT</span>
+             </button>
+          </div>
         </div>
-      </div>
+      </header>
       
       <div id="print-area" className="space-y-10">
         
@@ -182,7 +190,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                 {freelancerReports.filter(r => r.totalPayment !== 0 || r.completedTasks.length > 0 || r.advancesInPeriod.length > 0).length > 0 ? (
                     freelancerReports.map(({ freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal }) => (
                         (taskTotal > 0 || advancesTotal > 0) && (
-                            <div key={freelancer.id} className="bg-base-100 rounded-2xl shadow-lg border border-base-300 flex flex-col overflow-hidden h-full">
+                            <div key={freelancer.id} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
                                 {/* Card Header */}
                                 <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
                                     <div>
@@ -281,7 +289,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {fixedReports.map(({ designer, completedTasks, finalSalary, advancesTotal, salary }) => (
-                     <div key={designer.id} className="bg-base-100 rounded-2xl shadow-lg border border-base-300 flex flex-col overflow-hidden h-full">
+                     <div key={designer.id} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
                         {/* Header */}
                          <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
                             <div>
