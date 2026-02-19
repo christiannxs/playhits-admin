@@ -20,6 +20,32 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
   const freelancers = designers.filter(d => d.type === DesignerType.Freelancer);
   const fixedDesigners = designers.filter(d => d.type === DesignerType.Fixed);
+
+  // Controle financeiro histórico: apenas freelancers, valores desde o início do sistema (sem filtro de período)
+  const financialControlAllTime = useMemo(() => {
+    return freelancers.map(designer => {
+      const allTasks = tasks.filter(t => t.designer_id === designer.id);
+      const allAdvances = advances.filter(a => a.designer_id === designer.id);
+      const totalFromTasks = allTasks.reduce((sum, t) => sum + t.value, 0);
+      const totalAdvancesAmount = allAdvances.reduce((sum, a) => sum + a.amount, 0);
+      const netPayment = totalFromTasks - totalAdvancesAmount;
+      return {
+        designer,
+        allTasks,
+        allAdvances,
+        totalFromTasks,
+        totalAdvancesAmount,
+        netPayment,
+        taskCount: allTasks.length,
+      };
+    });
+  }, [freelancers, tasks, advances]);
+
+  const financialControlTotals = useMemo(() => {
+    const totalProducao = financialControlAllTime.reduce((s, r) => s + r.totalFromTasks, 0);
+    const totalAdiantamentos = financialControlAllTime.reduce((s, r) => s + r.totalAdvancesAmount, 0);
+    return { totalProducao, totalAdiantamentos };
+  }, [financialControlAllTime]);
   
   const freelancerReports = freelancers.map(freelancer => {
     const completedTasks = tasks.filter(task => 
@@ -160,7 +186,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
              <div className="relative">
-               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="py-2.5 pl-10 pr-4 border rounded-xl bg-base-100 border-base-300 focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-base-content text-sm"/>
+               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="py-2.5 pl-10 pr-4 border rounded-xl bg-base-100 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-base-content text-sm"/>
                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content-secondary pointer-events-none" />
              </div>
              <button onClick={handleCopyReport} className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">
@@ -172,6 +198,53 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
       </header>
       
       <div id="print-area" className="space-y-10">
+
+        {/* Controle financeiro — histórico desde o início do sistema */}
+        <div className="bg-base-100/95 rounded-2xl border border-base-300/40 overflow-hidden shadow-card">
+          <div className="flex items-center gap-2 p-4 border-b border-base-300 bg-base-200/60">
+            <div className="bg-emerald-500/20 p-2 rounded-full">
+              <CashIcon className="text-emerald-400 h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-base-content">Controle financeiro</h3>
+              <p className="text-xs text-base-content-secondary">Freelancers e valores recebidos desde o início do sistema (histórico completo)</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-base-300">
+                  <th className="text-left font-bold text-base-content">Designer</th>
+                  <th className="text-right font-bold text-base-content">Demandas (qtd)</th>
+                  <th className="text-right font-bold text-base-content">Total produzido</th>
+                  <th className="text-right font-bold text-base-content">Adiantamentos</th>
+                  <th className="text-right font-bold text-base-content">Líquido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {financialControlAllTime.map(({ designer, totalFromTasks, totalAdvancesAmount, netPayment, taskCount }) => (
+                  <tr key={designer.id} className="border-b border-base-300/40 hover:bg-base-200/30 transition-smooth">
+                    <td className="font-medium text-base-content">{designer.name}</td>
+                    <td className="text-right text-base-content">{taskCount}</td>
+                    <td className="text-right font-medium text-base-content">{formatCurrency(totalFromTasks)}</td>
+                    <td className="text-right text-red-400">-{formatCurrency(totalAdvancesAmount)}</td>
+                    <td className="text-right font-bold text-brand-primary">{formatCurrency(netPayment)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 border-t border-base-300 bg-base-200/30 flex flex-wrap gap-6 justify-end text-sm">
+            <div>
+              <span className="text-base-content-secondary">Soma produção (demandas): </span>
+              <span className="font-bold text-base-content">{formatCurrency(financialControlTotals.totalProducao)}</span>
+            </div>
+            <div>
+              <span className="text-base-content-secondary">Soma adiantamentos: </span>
+              <span className="font-bold text-red-400">-{formatCurrency(financialControlTotals.totalAdiantamentos)}</span>
+            </div>
+          </div>
+        </div>
         
         {/* Freelancer Section */}
         <div>
@@ -190,7 +263,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                 {freelancerReports.filter(r => r.totalPayment !== 0 || r.completedTasks.length > 0 || r.advancesInPeriod.length > 0).length > 0 ? (
                     freelancerReports.map(({ freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal }) => (
                         (taskTotal > 0 || advancesTotal > 0) && (
-                            <div key={freelancer.id} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
+                            <div key={freelancer.id} className="bg-base-100/90 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
                                 {/* Card Header */}
                                 <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
                                     <div>
@@ -289,7 +362,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {fixedReports.map(({ designer, completedTasks, finalSalary, advancesTotal, salary }) => (
-                     <div key={designer.id} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
+                     <div key={designer.id} className="bg-base-100/90 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 flex flex-col overflow-hidden h-full hover:shadow-card-hover transition-smooth">
                         {/* Header */}
                          <div className="bg-base-200/50 p-4 border-b border-base-300 flex justify-between items-start">
                             <div>
@@ -350,7 +423,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
         </div>
 
         {/* Consolidated Monthly Report (Bar at bottom) */}
-        <div className="bg-base-200 p-6 rounded-2xl border border-base-300">
+        <div className="bg-base-200/80 p-6 rounded-2xl border border-base-300/40 shadow-card">
             <h3 className="text-lg font-bold mb-4 text-base-content border-b border-base-300 pb-2">Resumo Geral Consolidado</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex flex-col">

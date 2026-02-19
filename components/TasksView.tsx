@@ -23,9 +23,9 @@ const TaskTable: React.FC<{
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
 }> = ({ tasks, isDirector, designerMap, onEdit, onDelete }) => (
-    <div className="overflow-x-auto rounded-b-2xl border border-t-0 border-base-300/50">
+    <div className="overflow-x-auto rounded-b-2xl border border-t-0 border-base-300/40">
       <table className="w-full text-left">
-          <thead className="border-b border-base-300 bg-base-200/50">
+          <thead className="border-b border-base-300 bg-base-200/60">
               <tr>
                   <th className="p-4 font-semibold text-base-content-secondary">Mídia</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Designer</th>
@@ -36,7 +36,7 @@ const TaskTable: React.FC<{
           </thead>
           <tbody>
               {tasks.map(task => (
-                  <tr key={task.id} className="border-b border-base-300 hover:bg-base-100/50 last:border-b-0">
+                  <tr key={task.id} className="border-b border-base-300/40 hover:bg-base-100/50 last:border-b-0 transition-smooth">
                       <td className="p-4 align-top">
                           <p className="font-semibold text-base-content">{task.media_type}</p>
                           {(task.description && task.description !== '-') && (
@@ -269,17 +269,17 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
       </header>
 
       {!isDirector && (
-          <div className="bg-base-100/80 backdrop-blur-sm p-4 rounded-xl border border-base-300/50">
+          <div className="bg-base-100/90 backdrop-blur-sm p-4 rounded-xl border border-base-300/40">
               <p className="text-base-content-secondary text-sm">
                   A gestão de demandas é realizada exclusivamente pelo Diretor de Arte. Você pode visualizar suas demandas atribuídas abaixo.
               </p>
           </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 bg-base-100/80 backdrop-blur-sm p-4 rounded-2xl shadow-card border border-base-300/40">
+      <div className="flex flex-wrap items-center gap-4 bg-base-100/90 backdrop-blur-sm p-4 rounded-2xl shadow-card border border-base-300/40">
         <span className="font-semibold text-base-content-secondary text-sm uppercase tracking-wide">Filtros</span>
         {isDirector && (
-          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm">
+          <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-sm">
             <option value="all">Todos os Designers</option>
             {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -291,7 +291,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm"
+                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-sm"
             />
         </div>
         <div className="flex items-center gap-2">
@@ -301,7 +301,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none text-sm"
+                className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-sm"
             />
         </div>
         <button 
@@ -318,8 +318,8 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           Object.keys(groupedTasks).map((weekKey) => {
             const group = groupedTasks[weekKey];
             return (
-              <details key={weekKey} className="bg-base-100/80 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 overflow-hidden group" open>
-                <summary className="p-4 font-bold text-base cursor-pointer hover:bg-base-200/50 list-none flex items-center gap-2 transition-smooth rounded-t-2xl">
+              <details key={weekKey} className="bg-base-100/90 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 overflow-hidden group" open>
+                <summary className="p-4 font-bold text-base cursor-pointer hover:bg-base-200/40 list-none flex items-center gap-2 transition-smooth rounded-t-2xl">
                   <ClockIcon className="h-5 w-5 text-brand-primary flex-shrink-0" />
                   Semana de {formatDate(group.weekRange.start.toISOString())} a {formatDate(group.weekRange.end.toISOString())}
                 </summary>
@@ -346,7 +346,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           {isDirector && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
-                <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+                <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
                 <option value="">Selecione um designer</option>
                 {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -354,24 +354,24 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           )}
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
-            <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
               <option value="">Selecione um tipo</option>
               {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
-            <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
           <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">{editingTask ? 'Salvar Alterações' : 'Adicionar'}</button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">{editingTask ? 'Salvar Alterações' : 'Adicionar'}</button>
           </div>
         </form>
       </Modal>
 
       <Modal isOpen={isBulkModalOpen} onClose={closeBulkModal} title="Adicionar Demandas em Massa">
         <form onSubmit={handleBulkSubmit} className="space-y-4">
-          <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-3 mb-4">
+          <div className="bg-blue-900/20 border border-blue-500/40 rounded-xl p-3 mb-4">
             <p className="text-sm text-blue-300">
               <strong>Como usar:</strong> Preencha os dados abaixo e especifique a quantidade. Serão criadas múltiplas demandas idênticas com os mesmos parâmetros.
             </p>
@@ -382,7 +382,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             <select 
               value={bulkFormData.designer_id} 
               onChange={e => setBulkFormData({ ...bulkFormData, designer_id: e.target.value })} 
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
               required
             >
               <option value="">Selecione um designer</option>
@@ -395,7 +395,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             <select 
               value={bulkFormData.media_type} 
               onChange={e => setBulkFormData({ ...bulkFormData, media_type: e.target.value })} 
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
               required
             >
               <option value="">Selecione um tipo</option>
@@ -413,7 +413,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
               type="date" 
               value={bulkFormData.due_date} 
               onChange={e => setBulkFormData({ ...bulkFormData, due_date: e.target.value })} 
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
               required 
             />
           </div>
@@ -426,7 +426,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
               max="100" 
               value={bulkFormData.quantity} 
               onChange={e => setBulkFormData({ ...bulkFormData, quantity: parseInt(e.target.value) || 1 })} 
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
               required 
             />
             <p className="text-xs text-base-content-secondary mt-1">
@@ -434,7 +434,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             </p>
           </div>
           
-          <div className="bg-base-200/50 rounded-lg p-3 mt-4">
+          <div className="bg-base-200/50 rounded-xl p-3 mt-4">
             <p className="text-sm text-base-content-secondary">
               <strong>Resumo:</strong> Serão criadas <strong className="text-base-content">{bulkFormData.quantity}</strong> demanda(s) do tipo <strong className="text-base-content">{bulkFormData.media_type || 'N/A'}</strong> para <strong className="text-base-content">{bulkFormData.designer_id ? designers.find(d => d.id === bulkFormData.designer_id)?.name || 'N/A' : 'N/A'}</strong> com entrega em <strong className="text-base-content">{bulkFormData.due_date || 'N/A'}</strong>.
             </p>
@@ -443,7 +443,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
             <button 
               type="submit" 
-              className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-lg"
               disabled={!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1}
             >
               Adicionar {bulkFormData.quantity} Demanda(s)

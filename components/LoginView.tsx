@@ -30,20 +30,17 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-base-200 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-base-200 via-base-200 to-brand-primary/5" />
-      <div className="absolute top-0 right-0 w-[60%] h-[60%] bg-brand-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-[40%] h-[40%] bg-base-300/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-      <main className="flex-1 flex items-center justify-center p-6 relative z-10">
-        <div className="w-full max-w-md p-8 sm:p-10 space-y-8 bg-base-100/95 backdrop-blur-sm rounded-3xl shadow-card border border-base-300/50">
+      <main className="flex-1 flex items-center justify-center p-6 relative z-10 animate-fade-in">
+        <div className="w-full max-w-md p-8 sm:p-10 space-y-8 bg-base-100/98 backdrop-blur-md rounded-3xl shadow-card border border-base-300/40 hover:shadow-card-hover transition-smooth">
           <div className="flex flex-col items-center space-y-4">
-            <div className="p-2 rounded-2xl bg-base-200/80">
+            <div className="p-4 rounded-2xl bg-base-200/80 border border-base-300/30 shadow-inner-soft">
               <img src={logophd} alt="Play Hits Gerenciamento" className="h-28 w-auto object-contain" />
             </div>
-            <p className="text-base-content-secondary text-sm">Acesse o painel de controle</p>
+            <p className="text-base-content-secondary text-sm font-medium">Acesse o painel de controle</p>
           </div>
 
           {profileError && (
-            <div className="text-sm text-amber-200 bg-amber-900/40 border border-amber-500/50 p-4 rounded-xl text-center">
+            <div className="text-sm text-amber-200 bg-amber-900/30 border border-amber-500/40 p-4 rounded-xl text-center">
               <p className="font-semibold mb-1">Aviso do Sistema</p>
               <p>{profileError}</p>
             </div>
@@ -57,7 +54,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
                 placeholder="Usuário"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full py-3.5 pl-12 pr-4 rounded-xl bg-base-200 border border-base-300 text-base-content placeholder-base-content-secondary focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-shadow"
+                className="w-full py-3.5 pl-12 pr-4 rounded-xl bg-base-200 border border-base-300 text-base-content placeholder-base-content-secondary focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary/60"
                 required
               />
             </div>
@@ -68,16 +65,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
                 placeholder="Senha"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full py-3.5 pl-12 pr-4 rounded-xl bg-base-200 border border-base-300 text-base-content placeholder-base-content-secondary focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-shadow"
+                className="w-full py-3.5 pl-12 pr-4 rounded-xl bg-base-200 border border-base-300 text-base-content placeholder-base-content-secondary focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary/60"
                 required
               />
             </div>
 
-            {error && <p className="text-sm text-red-400 text-center">{error}</p>}
+            {error && <p className="text-sm text-red-400 text-center bg-red-900/20 py-2 rounded-lg">{error}</p>}
 
             <button
               type="submit"
-              className="w-full bg-brand-primary text-white py-3.5 rounded-xl font-semibold hover:bg-brand-secondary transition-all shadow-lg hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-100 focus:ring-brand-primary disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-brand-primary text-white py-3.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-100 focus:ring-brand-primary disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? 'Entrando...' : 'Entrar'}
@@ -85,7 +82,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
           </form>
         </div>
       </main>
-      <footer className="relative z-10 bg-base-100/80 backdrop-blur-sm border-t border-base-300/50 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
+      <footer className="relative z-10 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
         aplicativo desenvolvido por Christian Rodrigues · todos direitos reservados · phd marketing inteligente
       </footer>
     </div>

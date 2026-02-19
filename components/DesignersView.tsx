@@ -77,7 +77,7 @@ const DesignerCard: React.FC<{
     const balanceColor = balance < 0 ? 'text-red-400' : 'text-green-400';
 
     return (
-        <div className="bg-base-100/80 backdrop-blur-sm p-5 rounded-2xl shadow-card border border-base-300/40 flex flex-col justify-between h-full hover:shadow-card-hover hover:border-base-300/60 transition-smooth">
+        <div className="bg-base-100/90 backdrop-blur-sm p-5 rounded-2xl shadow-card border border-base-300/40 flex flex-col justify-between h-full hover:shadow-card-hover hover:border-base-300/50 transition-smooth">
             <div>
                 <h4 className="text-lg font-bold text-base-content">{designer.name}</h4>
                 <p className="text-sm text-base-content-secondary">{designer.role}</p>
@@ -159,18 +159,18 @@ const AdvanceModal: React.FC<{
                 <h4 className="font-semibold text-base-content">Adicionar Novo Vale</h4>
                  <div>
                     <label className="block text-sm font-medium text-base-content-secondary mb-1">Data</label>
-                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-base-content-secondary mb-1">Valor (R$)</label>
-                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Ex: 50.00" className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                    <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Ex: 50.00" className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-base-content-secondary mb-1">Motivo/Descrição</label>
-                    <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex: Adiantamento semanal" className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                    <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex: Adiantamento semanal" className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
                 </div>
                 <div className="text-right">
-                    <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors text-sm">Adicionar</button>
+                    <button type="submit" className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand text-sm">Adicionar</button>
                 </div>
             </form>
 
@@ -330,7 +330,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
             placeholder="Buscar designer por nome..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full py-2.5 pl-10 pr-4 rounded-xl bg-base-100/80 border border-base-300 text-base-content placeholder-base-content-secondary/60 focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none transition-smooth"
+            className="w-full py-2.5 pl-10 pr-4 rounded-xl bg-base-100/90 border border-base-300 text-base-content placeholder-base-content-secondary/60 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none transition-smooth"
         />
       </div>
 
@@ -357,15 +357,15 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
         <form onSubmit={handleUpdateSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
-            <input type="text" value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                <input type="text" value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário (não pode ser alterado)</label>
-            <input type="text" value={editingDesigner?.username || ''} className="w-full p-2 border rounded-lg bg-base-300 border-base-300 text-base-content-secondary" disabled />
+            <input type="text" value={editingDesigner?.username || ''} className="w-full p-3 border rounded-xl bg-base-300 border-base-300 text-base-content-secondary" disabled />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
-             <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
+             <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
                 <option value="Designer">Designer</option>
                 <option value="Freelancer">Freelancer</option>
                 <option value="Diretor de Arte">Diretor de Arte</option>
@@ -374,7 +374,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Contrato</label>
-            <select value={editFormData.type} onChange={e => setEditFormData({ ...editFormData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={editFormData.type} onChange={e => setEditFormData({ ...editFormData, type: e.target.value as DesignerType })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
               <option value={DesignerType.Freelancer}>Freelancer</option>
               <option value={DesignerType.Fixed}>Fixo</option>
             </select>
@@ -382,11 +382,11 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           {editFormData.type === DesignerType.Fixed && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Salário Mensal (R$)</label>
-                <input type="number" step="0.01" value={editFormData.salary} onChange={e => setEditFormData({ ...editFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+                <input type="number" step="0.01" value={editFormData.salary} onChange={e => setEditFormData({ ...editFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
             </div>
           )}
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors">Salvar Alterações</button>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">Salvar Alterações</button>
           </div>
         </form>
       </Modal>
@@ -396,7 +396,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
         <form onSubmit={handleAddSubmit} className="space-y-4">
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome Completo</label>
-            <input type="text" value={addFormData.name} onChange={e => setAddFormData({ ...addFormData, name: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="text" value={addFormData.name} onChange={e => setAddFormData({ ...addFormData, name: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Nome de Usuário (para login)</label>
@@ -404,7 +404,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
               type="text" 
               value={addFormData.username} 
               onChange={e => setAddFormData({ ...addFormData, username: e.target.value.toLowerCase() })} 
-              className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" 
+              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
               required 
               autoCapitalize="none"
             />
@@ -412,15 +412,15 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Senha</label>
-            <input type="password" value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="password" value={addFormData.password} onChange={e => setAddFormData({ ...addFormData, password: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Confirmar Senha</label>
-            <input type="password" value={addFormData.confirmPassword} onChange={e => setAddFormData({ ...addFormData, confirmPassword: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required />
+            <input type="password" value={addFormData.confirmPassword} onChange={e => setAddFormData({ ...addFormData, confirmPassword: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
           <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Cargo</label>
-            <select value={addFormData.role} onChange={e => setAddFormData({ ...addFormData, role: e.target.value })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300" required>
+            <select value={addFormData.role} onChange={e => setAddFormData({ ...addFormData, role: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
                 <option value="Designer">Designer</option>
                 <option value="Freelancer">Freelancer</option>
                 <option value="Diretor de Arte">Diretor de Arte</option>
@@ -429,7 +429,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           </div>
            <div>
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Contrato</label>
-            <select value={addFormData.type} onChange={e => setAddFormData({ ...addFormData, type: e.target.value as DesignerType })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" required>
+            <select value={addFormData.type} onChange={e => setAddFormData({ ...addFormData, type: e.target.value as DesignerType })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
               <option value={DesignerType.Freelancer}>Freelancer</option>
               <option value={DesignerType.Fixed}>Fixo</option>
             </select>
@@ -437,14 +437,14 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
           {addFormData.type === DesignerType.Fixed && (
             <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Salário Mensal (R$)</label>
-                <input type="number" step="0.01" value={addFormData.salary} onChange={e => setAddFormData({ ...addFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-2 border rounded-lg bg-base-200 border-base-300 focus:ring-brand-primary focus:border-brand-primary" />
+                <input type="number" step="0.01" value={addFormData.salary} onChange={e => setAddFormData({ ...addFormData, salary: parseFloat(e.target.value) || 0 })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" />
             </div>
           )}
 
           {addFormError && <p className="text-sm text-red-400 text-center bg-red-900/50 p-2 rounded-md">{addFormError}</p>}
 
           <div className="flex justify-end pt-4">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-brand-secondary transition-colors disabled:bg-base-300" disabled={isSubmitting}>
+            <button type="submit" className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:shadow-none" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar Designer'}
               </button>
           </div>

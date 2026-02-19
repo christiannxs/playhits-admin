@@ -15,7 +15,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
   <div className="min-h-screen flex flex-col bg-base-200">
     <main className="flex-1 flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl p-8 sm:p-10 space-y-6 bg-base-100 rounded-3xl shadow-card border border-base-300/50">
+      <div className="w-full max-w-2xl p-8 sm:p-10 space-y-6 bg-base-100 rounded-3xl shadow-card border border-base-300/40">
         <div className="flex flex-col items-center space-y-4">
           <h1 className="text-2xl sm:text-3xl font-bold text-center text-red-400">
             Configuração Incompleta
@@ -23,7 +23,7 @@ const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
           <p className="text-base-content-secondary text-center text-sm">
             O aplicativo não pode se conectar ao banco de dados porque as credenciais do Supabase não foram fornecidas.
           </p>
-          <div className="w-full p-4 bg-base-200 rounded-xl text-base-content text-center font-mono text-sm border border-base-300/50">
+          <div className="w-full p-4 bg-base-200 rounded-xl text-base-content text-center font-mono text-sm border border-base-300/40">
             {message}
           </div>
           <p className="text-sm text-base-content-secondary text-center pt-2">
@@ -32,7 +32,7 @@ const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
         </div>
       </div>
     </main>
-    <footer className="bg-base-100 border-t border-base-300/50 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
+    <footer className="bg-base-100 border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
       aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
     </footer>
   </div>
@@ -472,7 +472,7 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 gap-6">
-        <div className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin" aria-hidden />
+        <div className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow" aria-hidden />
         <p className="text-base-content-secondary font-medium">Carregando...</p>
       </div>
     );
@@ -489,12 +489,12 @@ const App: React.FC = () => {
         <main className="main-content-scroll flex-1 p-6 sm:p-8 lg:p-10 overflow-y-auto">
           <div className="max-w-7xl mx-auto w-full">
           {apiError && (
-            <div className="bg-red-900/40 border border-red-500/60 text-red-200 p-5 rounded-xl mb-8 relative">
+            <div className="bg-red-900/30 border border-red-500/40 text-red-200 p-5 rounded-2xl mb-8 relative shadow-card">
               <h4 className="font-semibold mb-2">Ocorreu um Erro</h4>
               <pre className="text-sm whitespace-pre-wrap font-sans opacity-90">{apiError}</pre>
               <button
                 onClick={() => setApiError(null)}
-                className="absolute top-4 right-4 text-red-300 hover:text-white text-xl font-bold leading-none p-1 rounded-lg hover:bg-red-500/20 transition-colors"
+                className="absolute top-4 right-4 text-red-300 hover:text-white text-xl font-bold leading-none p-1 rounded-xl hover:bg-red-500/20 transition-smooth"
                 aria-label="Fechar aviso"
               >&times;</button>
             </div>
@@ -502,7 +502,7 @@ const App: React.FC = () => {
           {renderView()}
           </div>
         </main>
-        <footer className="bg-base-100/80 border-t border-base-300/50 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">
+        <footer className="bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">
           aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
         </footer>
       </div>
