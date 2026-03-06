@@ -162,87 +162,93 @@ const App: React.FC = () => {
     setLoggedInUser(null);
   };
 
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => {
+  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>): Promise<boolean> => {
     setApiError(null);
     try {
       const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
-      const { data, error } = await supabase.from('tasks').insert({ ...taskData, value }).select().single();
-      
+      const payload = {
+        designer_id: taskData.designer_id,
+        media_type: taskData.media_type,
+        due_date: taskData.due_date,
+        artist: taskData.artist ?? '-',
+        social_media: taskData.social_media ?? '-',
+        description: taskData.description ?? '-',
+        value,
+      };
+      const { data, error } = await supabase.from('tasks').insert(payload).select().single();
+
       if (error) {
         throw error;
       }
-      
+
       if (data) {
         setTasks(prev => [data, ...prev]);
       }
+      return true;
     } catch (error: any) {
       console.error('Erro detalhado ao adicionar demanda:', error);
       let errorMessage = 'Ocorreu um erro inesperado.';
       if (error && typeof error === 'object' && 'message' in error) {
-          const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-          errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
+        const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+        errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
       } else {
-          try {
-            errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
-          } catch {
-            errorMessage = `Ocorreu um erro não-JSON: ${error}`;
-          }
+        try {
+          errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
+        } catch {
+          errorMessage = `Ocorreu um erro não-JSON: ${error}`;
+        }
       }
       setApiError(`Falha ao adicionar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
+      return false;
     }
   };
 
-  const addTasksBulk = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => {
+  const addTasksBulk = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number): Promise<boolean> => {
     setApiError(null);
     try {
       const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
-      const tasksToInsert = Array(quantity).fill(null).map(() => ({
-        ...taskData,
+      const row = {
+        designer_id: taskData.designer_id,
+        media_type: taskData.media_type,
+        due_date: taskData.due_date,
+        artist: taskData.artist ?? '-',
+        social_media: taskData.social_media ?? '-',
+        description: taskData.description ?? '-',
         value,
-      }));
-      
-      console.log(`Tentando inserir ${quantity} demandas em massa:`, { taskData, quantity, tasksToInsert });
-      
+      };
+      const tasksToInsert = Array(quantity).fill(null).map(() => ({ ...row }));
+
       const { data, error } = await supabase.from('tasks').insert(tasksToInsert).select();
-      
+
       if (error) {
         console.error('Erro ao inserir demandas em massa:', error);
         throw error;
       }
-      
-      console.log('Resposta do Supabase após inserção em massa:', { data, dataLength: data?.length });
-      
+
       if (data && data.length > 0) {
-        console.log(`Adicionando ${data.length} demandas ao estado. Esperado: ${quantity}`);
-        setTasks(prev => {
-          const updated = [...data, ...prev];
-          console.log(`Estado atualizado. Total de demandas: ${updated.length}`);
-          return updated;
-        });
+        setTasks(prev => [...data, ...prev]);
       } else {
-        console.warn('Nenhuma demanda foi retornada pelo Supabase após a inserção em massa');
-        // Mesmo sem dados retornados, pode ser que as tarefas tenham sido inseridas
-        // Vamos recarregar as tarefas do banco para garantir
         const { data: refreshedTasks, error: refreshError } = await supabase.from('tasks').select('*');
         if (!refreshError && refreshedTasks) {
           setTasks(refreshedTasks);
-          console.log('Tarefas recarregadas do banco de dados');
         }
       }
+      return true;
     } catch (error: any) {
       console.error('Erro detalhado ao adicionar demandas em massa:', error);
       let errorMessage = 'Ocorreu um erro inesperado.';
       if (error && typeof error === 'object' && 'message' in error) {
-          const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-          errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
+        const dbError = error as { message: string; details?: string; hint?: string; code?: string };
+        errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
       } else {
-          try {
-            errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
-          } catch {
-            errorMessage = `Ocorreu um erro não-JSON: ${error}`;
-          }
+        try {
+          errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
+        } catch {
+          errorMessage = `Ocorreu um erro não-JSON: ${error}`;
+        }
       }
       setApiError(`Falha ao adicionar demandas em massa.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
+      return false;
     }
   };
 
@@ -283,35 +289,26 @@ const App: React.FC = () => {
   const deleteTask = async (taskId: string) => {
     setApiError(null);
 
-    // 1. Chamar Supabase.delete com .eq() na chave primária 'id'.
-    // Usar { count: 'exact' } para obter o número de linhas afetadas.
-    const { data, error, count } = await supabase
+    const { data, error } = await supabase
       .from('tasks')
-      .delete({ count: 'exact' })
-      .eq('id', taskId);
+      .delete()
+      .eq('id', taskId)
+      .select();
 
-    // 2. Adicionar console.log para depuração.
-    console.log('Supabase delete response:', { data, error, count });
-
-    // 3. Tratar o caso de erro retornado pelo Supabase.
     if (error) {
       console.error('Erro detalhado ao deletar demanda:', error);
       const dbError = error as { message: string; details?: string; hint?: string; code?: string };
       const errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}`;
-      
       setApiError(`Falha ao deletar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique as políticas de segurança (Row Level Security) da sua tabela 'tasks' no Supabase. Certifique-se de que a role do seu usuário ('Diretor de Arte') tem permissão para a operação 'DELETE'.`);
       return;
     }
 
-    // 4. Tratar o caso em que a operação não dá erro, mas nada é deletado (count === 0 ou null),
-    // o que indica uma falha de permissão (RLS).
-    if (count === null || count === 0) {
+    if (!data || data.length === 0) {
       console.error('Nenhuma demanda foi deletada. Provável falha de RLS.');
       setApiError(`A operação de exclusão falhou.\n\nNenhuma demanda foi removida, o que geralmente indica um problema de permissão.\n\n---\n\n**Ação Recomendada:**\nVerifique se a política de segurança (Row Level Security) para 'DELETE' na tabela 'tasks' está corretamente configurada no Supabase para permitir que a sua função ('Diretor de Arte') execute esta ação.`);
       return;
     }
-    
-    // 5. Se a exclusão for bem-sucedida (count > 0), atualizar o estado da UI.
+
     setTasks(prev => prev.filter(task => task.id !== taskId));
   };
 

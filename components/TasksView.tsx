@@ -9,8 +9,8 @@ import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardD
 interface TasksViewProps {
   tasks: Task[];
   designers: Designer[];
-  onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => void;
-  onAddTasksBulk: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => void;
+  onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => Promise<boolean>;
+  onAddTasksBulk: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => Promise<boolean>;
   onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
   loggedInUser: Designer;
@@ -91,6 +91,8 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   });
   
   const [filterDesigner, setFilterDesigner] = useState<string>(isDirector ? 'all' : loggedInUser.id);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   
   const initialWeekRange = getWeekRange(new Date());
   const [startDate, setStartDate] = useState<string>(toLocalDateString(initialWeekRange.start));
@@ -140,64 +142,64 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.designer_id && formData.media_type && formData.due_date) {
-      const payload = {
-        ...formData,
-        artist: formData.artist || '-',
-        social_media: formData.social_media || '-',
-        value: MEDIA_PRICES[formData.media_type]?.price || 0,
-      };
+    if (!formData.designer_id || !formData.media_type || !formData.due_date) return;
 
-      if (editingTask) {
-        onUpdateTask(editingTask.id, payload);
-      } else {
-        onAddTask(payload);
-      }
+    const payload = {
+      ...formData,
+      artist: formData.artist || '-',
+      social_media: formData.social_media || '-',
+      description: formData.description ?? '-',
+    };
+
+    if (editingTask) {
+      onUpdateTask(editingTask.id, { ...payload, value: MEDIA_PRICES[formData.media_type]?.price ?? 0 });
       closeModal();
+      return;
     }
+
+    setIsSubmitting(true);
+    const success = await onAddTask(payload);
+    setIsSubmitting(false);
+    if (success) closeModal();
   };
 
-  const handleBulkSubmit = (e: React.FormEvent) => {
+  const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (bulkFormData.designer_id && bulkFormData.media_type && bulkFormData.due_date && bulkFormData.quantity > 0) {
-      const payload = {
-        designer_id: bulkFormData.designer_id,
-        media_type: bulkFormData.media_type,
-        due_date: bulkFormData.due_date,
-        artist: bulkFormData.artist || '-',
-        social_media: bulkFormData.social_media || '-',
-        description: '-',
-      };
+    if (!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1) return;
 
-      // Ajustar filtros para garantir que as novas demandas apareçam
-      // Ajustar filtro de designer se necessário
-      if (isDirector && filterDesigner !== 'all' && filterDesigner !== bulkFormData.designer_id) {
-        setFilterDesigner(bulkFormData.designer_id);
-      }
-      
-      // Ajustar filtro de data para incluir a data de entrega
-      const dueDateStr = bulkFormData.due_date;
-      if (startDate && endDate) {
-        // Se a data de entrega estiver fora do range atual, ajustar o range
-        if (dueDateStr < startDate || dueDateStr > endDate) {
-          // Expandir o range para incluir a nova data
-          const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
-          const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
-          setStartDate(newStartDate);
-          setEndDate(newEndDate);
-        }
-      } else {
-        // Se não há filtro de data, definir para a semana da data de entrega
-        const weekRange = getWeekRange(new Date(dueDateStr));
-        setStartDate(toLocalDateString(weekRange.start));
-        setEndDate(toLocalDateString(weekRange.end));
-      }
+    const payload = {
+      designer_id: bulkFormData.designer_id,
+      media_type: bulkFormData.media_type,
+      due_date: bulkFormData.due_date,
+      artist: bulkFormData.artist || '-',
+      social_media: bulkFormData.social_media || '-',
+      description: '-',
+    };
 
-      onAddTasksBulk(payload, bulkFormData.quantity);
-      closeBulkModal();
+    if (isDirector && filterDesigner !== 'all' && filterDesigner !== bulkFormData.designer_id) {
+      setFilterDesigner(bulkFormData.designer_id);
     }
+
+    const dueDateStr = bulkFormData.due_date;
+    if (startDate && endDate) {
+      if (dueDateStr < startDate || dueDateStr > endDate) {
+        const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
+        const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
+        setStartDate(newStartDate);
+        setEndDate(newEndDate);
+      }
+    } else {
+      const weekRange = getWeekRange(new Date(dueDateStr));
+      setStartDate(toLocalDateString(weekRange.start));
+      setEndDate(toLocalDateString(weekRange.end));
+    }
+
+    setIsBulkSubmitting(true);
+    const success = await onAddTasksBulk(payload, bulkFormData.quantity);
+    setIsBulkSubmitting(false);
+    if (success) closeBulkModal();
   };
 
   const filteredTasks = useMemo(() => {
@@ -364,7 +366,9 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
           <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
-            <button type="submit" className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand">{editingTask ? 'Salvar Alterações' : 'Adicionar'}</button>
+            <button type="submit" disabled={isSubmitting} className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:cursor-not-allowed">
+              {isSubmitting ? 'Salvando...' : (editingTask ? 'Salvar Alterações' : 'Adicionar')}
+            </button>
           </div>
         </form>
       </Modal>
@@ -443,10 +447,10 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
             <button 
               type="submit" 
-              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-lg"
-              disabled={!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1}
+              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1 || isBulkSubmitting}
             >
-              Adicionar {bulkFormData.quantity} Demanda(s)
+              {isBulkSubmitting ? 'Salvando...' : `Adicionar ${bulkFormData.quantity} Demanda(s)`}
             </button>
           </div>
         </form>
