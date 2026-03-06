@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Designer, Task, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
@@ -70,6 +70,7 @@ const TaskTable: React.FC<{
 
 const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, loggedInUser }) => {
   const isDirector = loggedInUser.role === 'Diretor de Arte';
+  const filtersStorageKey = `tasks-view-filters-${loggedInUser.id}`;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -95,8 +96,33 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   
   const initialWeekRange = getWeekRange(new Date());
-  const [startDate, setStartDate] = useState<string>(toLocalDateString(initialWeekRange.start));
-  const [endDate, setEndDate] = useState<string>(toLocalDateString(initialWeekRange.end));
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  useEffect(() => {
+    const savedFilters = window.localStorage.getItem(filtersStorageKey);
+    if (savedFilters) {
+      try {
+        const parsed = JSON.parse(savedFilters) as { filterDesigner?: string; startDate?: string; endDate?: string };
+        setFilterDesigner(parsed.filterDesigner || (isDirector ? 'all' : loggedInUser.id));
+        setStartDate(parsed.startDate || '');
+        setEndDate(parsed.endDate || '');
+        return;
+      } catch {
+        window.localStorage.removeItem(filtersStorageKey);
+      }
+    }
+
+    // Keep current behavior as fallback when there are no saved filters.
+    setFilterDesigner(isDirector ? 'all' : loggedInUser.id);
+    setStartDate(toLocalDateString(initialWeekRange.start));
+    setEndDate(toLocalDateString(initialWeekRange.end));
+  }, [filtersStorageKey, isDirector, loggedInUser.id]);
+
+  useEffect(() => {
+    const payload = JSON.stringify({ filterDesigner, startDate, endDate });
+    window.localStorage.setItem(filtersStorageKey, payload);
+  }, [filtersStorageKey, filterDesigner, startDate, endDate]);
   
   const designerMap = useMemo(() => new Map(designers.map(d => [d.id, d.name])), [designers]);
 
@@ -152,6 +178,24 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
       social_media: formData.social_media || '-',
       description: formData.description ?? '-',
     };
+
+    if (isDirector && filterDesigner !== 'all' && filterDesigner !== payload.designer_id) {
+      setFilterDesigner(payload.designer_id);
+    }
+
+    const dueDateStr = payload.due_date;
+    if (startDate && endDate) {
+      if (dueDateStr < startDate || dueDateStr > endDate) {
+        const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
+        const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
+        setStartDate(newStartDate);
+        setEndDate(newEndDate);
+      }
+    } else {
+      const weekRange = getWeekRange(new Date(dueDateStr));
+      setStartDate(toLocalDateString(weekRange.start));
+      setEndDate(toLocalDateString(weekRange.end));
+    }
 
     if (editingTask) {
       onUpdateTask(editingTask.id, { ...payload, value: MEDIA_PRICES[formData.media_type]?.price ?? 0 });
