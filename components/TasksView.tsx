@@ -71,6 +71,11 @@ const TaskTable: React.FC<{
 const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, loggedInUser }) => {
   const isDirector = loggedInUser.role === 'Diretor de Arte';
   const filtersStorageKey = `tasks-view-filters-${loggedInUser.id}`;
+  const initialWeekRange = getWeekRange(new Date());
+
+  const defaultFilterDesigner = isDirector ? 'all' : loggedInUser.id;
+  const defaultStartDate = toLocalDateString(initialWeekRange.start);
+  const defaultEndDate = toLocalDateString(initialWeekRange.end);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -91,37 +96,40 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     quantity: 1,
   });
   
-  const [filterDesigner, setFilterDesigner] = useState<string>(isDirector ? 'all' : loggedInUser.id);
+  const [filterDesigner, setFilterDesigner] = useState<string>(defaultFilterDesigner);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
-  
-  const initialWeekRange = getWeekRange(new Date());
+
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
-    const savedFilters = window.localStorage.getItem(filtersStorageKey);
-    if (savedFilters) {
-      try {
+    try {
+      const savedFilters = window.localStorage.getItem(filtersStorageKey);
+      if (savedFilters) {
         const parsed = JSON.parse(savedFilters) as { filterDesigner?: string; startDate?: string; endDate?: string };
-        setFilterDesigner(parsed.filterDesigner || (isDirector ? 'all' : loggedInUser.id));
+        setFilterDesigner(parsed.filterDesigner || defaultFilterDesigner);
         setStartDate(parsed.startDate || '');
         setEndDate(parsed.endDate || '');
         return;
-      } catch {
-        window.localStorage.removeItem(filtersStorageKey);
       }
+    } catch {
+      // Ignore storage read/parse errors and fallback to safe defaults.
     }
 
     // Keep current behavior as fallback when there are no saved filters.
-    setFilterDesigner(isDirector ? 'all' : loggedInUser.id);
-    setStartDate(toLocalDateString(initialWeekRange.start));
-    setEndDate(toLocalDateString(initialWeekRange.end));
-  }, [filtersStorageKey, isDirector, loggedInUser.id]);
+    setFilterDesigner(defaultFilterDesigner);
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+  }, [filtersStorageKey, defaultFilterDesigner, defaultStartDate, defaultEndDate]);
 
   useEffect(() => {
-    const payload = JSON.stringify({ filterDesigner, startDate, endDate });
-    window.localStorage.setItem(filtersStorageKey, payload);
+    try {
+      const payload = JSON.stringify({ filterDesigner, startDate, endDate });
+      window.localStorage.setItem(filtersStorageKey, payload);
+    } catch {
+      // Ignore storage write errors to prevent breaking the page.
+    }
   }, [filtersStorageKey, filterDesigner, startDate, endDate]);
   
   const designerMap = useMemo(() => new Map(designers.map(d => [d.id, d.name])), [designers]);
