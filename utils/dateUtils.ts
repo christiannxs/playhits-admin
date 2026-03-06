@@ -2,41 +2,68 @@ import { Task, Advance } from '../types';
 
 const TIMEZONE = 'America/Fortaleza';
 
+/** Fallback YYYY-MM-DD sem usar Intl (para quando Intl lança RangeError). */
+function fallbackDateString(): string {
+    const n = new Date();
+    const y = n.getFullYear();
+    const m = String(n.getMonth() + 1).padStart(2, '0');
+    const d = String(n.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 /**
  * Returns a date string in YYYY-MM-DD format for the given date in the application's target timezone.
- * @param date The date object to format.
- * @returns A string in YYYY-MM-DD format.
+ * If the date is invalid or Intl throws, returns a fallback string so the app never crashes.
  */
 export const toLocalDateString = (date: Date): string => {
-    // en-CA locale gives the desired YYYY-MM-DD format.
-    return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(date);
+    if (!(date instanceof Date)) return fallbackDateString();
+    const t = date.getTime();
+    if (typeof t !== 'number' || Number.isNaN(t) || !Number.isFinite(t)) return fallbackDateString();
+    try {
+        const s = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(date);
+        return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : fallbackDateString();
+    } catch {
+        return fallbackDateString();
+    }
 };
 
 // A semana de pagamento para freelancers é de Sábado a Sexta-feira.
 export const getWeekRange = (date: Date): { start: Date; end: Date } => {
-  // Get the day of the week in the target timezone. (0=Sun, 6=Sat)
-  const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: TIMEZONE }).format(date);
-  const dayIndex = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as const)[dayName as 'Sun'];
+  const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  try {
+    const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: TIMEZONE }).format(d);
+    const dayIndex = WEEKDAY_INDEX[dayName] ?? 0;
 
-  // Get the date string for "today" in the target timezone to establish a non-ambiguous starting point.
-  const todayStr = toLocalDateString(date);
-  // Create a Date object representing midnight in the target timezone. Fortaleza is UTC-3.
-  const today = new Date(`${todayStr}T00:00:00.000-03:00`);
+    const todayStr = toLocalDateString(d);
+    const today = new Date(`${todayStr}T00:00:00.000-03:00`);
+    if (Number.isNaN(today.getTime())) return getWeekRangeFallback();
 
-  // Find the most recent Friday.
-  const daysUntilFriday = (5 - dayIndex + 7) % 7;
-  const end = new Date(today);
-  end.setUTCDate(today.getUTCDate() + daysUntilFriday);
+    const daysUntilFriday = (5 - dayIndex + 7) % 7;
+    const end = new Date(today);
+    end.setUTCDate(today.getUTCDate() + daysUntilFriday);
+    const start = new Date(end);
+    start.setUTCDate(end.getUTCDate() - 6);
+    end.setUTCHours(23, 59, 59, 999);
 
-  // The week starts on the Saturday before that Friday.
-  const start = new Date(end);
-  start.setUTCDate(end.getUTCDate() - 6);
-
-  // Set the time on the end date to the very end of the day.
-  end.setUTCHours(23, 59, 59, 999);
-
-  return { start, end };
+    return { start, end };
+  } catch {
+    return getWeekRangeFallback();
+  }
 };
+
+function getWeekRangeFallback(): { start: Date; end: Date } {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToFri = (5 - day + 7) % 7;
+  const end = new Date(now);
+  end.setDate(now.getDate() + diffToFri);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+}
 
 export const getMonthRange = (date: Date): { start: Date; end: Date } => {
     const yearStr = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: TIMEZONE }).format(date);
@@ -76,11 +103,14 @@ export const formatCurrency = (value: number) => {
 };
 
 export const formatDate = (dateString: string) => {
-    // The date string is YYYY-MM-DD. Parsing it with new Date() creates a date at UTC midnight.
-    // To prevent the local timezone from shifting the displayed date to the previous day,
-    // we explicitly format the date in the UTC timezone.
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    try {
+        if (dateString == null || String(dateString).trim() === '') return '—';
+        const date = new Date(dateString);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    } catch {
+        return '—';
+    }
 };
 
 export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task[], allAdvances: Advance[]) => {

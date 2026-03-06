@@ -18,8 +18,8 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
   const weekRange = useMemo(() => getWeekRange(date), [date]);
   const monthRange = useMemo(() => getMonthRange(date), [date]);
 
-  const freelancers = designers.filter(d => d.type === DesignerType.Freelancer);
   const fixedDesigners = designers.filter(d => d.type === DesignerType.Fixed);
+  const freelancers = designers.filter(d => d.type !== DesignerType.Fixed);
 
   // Controle financeiro histórico: apenas freelancers, valores desde o início do sistema (sem filtro de período)
   const financialControlAllTime = useMemo(() => {
@@ -47,43 +47,43 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
     return { totalProducao, totalAdiantamentos };
   }, [financialControlAllTime]);
   
-  const freelancerReports = freelancers.map(freelancer => {
-    const completedTasks = tasks.filter(task => 
-      task.designer_id === freelancer.id &&
-      new Date(task.created_at) >= weekRange.start &&
-      new Date(task.created_at) <= weekRange.end
-    );
-    const taskTotal = completedTasks.reduce((sum, task) => sum + task.value, 0);
+  const freelancerReports = useMemo(() => {
+    return freelancers.map(freelancer => {
+      const completedTasks = tasks.filter(task =>
+        task.designer_id === freelancer.id &&
+        new Date(task.created_at) >= weekRange.start &&
+        new Date(task.created_at) <= weekRange.end
+      );
+      const taskTotal = completedTasks.reduce((sum, task) => sum + task.value, 0);
+      const advancesInPeriod = advances.filter(adv =>
+        adv.designer_id === freelancer.id &&
+        new Date(adv.date) >= weekRange.start &&
+        new Date(adv.date) <= weekRange.end
+      );
+      const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+      const totalPayment = taskTotal - advancesTotal;
+      const paymentHistory = calculateWeeklyPaymentHistory(freelancer.id, tasks, advances);
+      return { freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal, paymentHistory };
+    });
+  }, [freelancers, tasks, advances, weekRange]);
 
-    const advancesInPeriod = advances.filter(adv =>
-      adv.designer_id === freelancer.id &&
-      new Date(adv.date) >= weekRange.start &&
-      new Date(adv.date) <= weekRange.end
-    );
-    const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-    
-    const totalPayment = taskTotal - advancesTotal;
-    const paymentHistory = calculateWeeklyPaymentHistory(freelancer.id, tasks, advances);
-
-    return { freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal, paymentHistory };
-  });
-
-  const fixedReports = fixedDesigners.map(designer => {
-    const completedTasks = tasks.filter(task =>
-      task.designer_id === designer.id &&
-      new Date(task.created_at) >= monthRange.start &&
-      new Date(task.created_at) <= monthRange.end
-    );
-    const advancesInPeriod = advances.filter(adv =>
-      adv.designer_id === designer.id &&
-      new Date(adv.date) >= monthRange.start &&
-      new Date(adv.date) <= monthRange.end
-    );
-    const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-    const finalSalary = (designer.salary || 0) - advancesTotal;
-
-    return { designer, completedTasks, finalSalary, advancesTotal, salary: designer.salary || 0 };
-  });
+  const fixedReports = useMemo(() => {
+    return fixedDesigners.map(designer => {
+      const completedTasks = tasks.filter(task =>
+        task.designer_id === designer.id &&
+        new Date(task.created_at) >= monthRange.start &&
+        new Date(task.created_at) <= monthRange.end
+      );
+      const advancesInPeriod = advances.filter(adv =>
+        adv.designer_id === designer.id &&
+        new Date(adv.date) >= monthRange.start &&
+        new Date(adv.date) <= monthRange.end
+      );
+      const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
+      const finalSalary = (designer.salary || 0) - advancesTotal;
+      return { designer, completedTasks, finalSalary, advancesTotal, salary: designer.salary || 0 };
+    });
+  }, [fixedDesigners, tasks, advances, monthRange]);
 
   // Consolidated Monthly Report Data
   const monthlyTasksTotal = tasks

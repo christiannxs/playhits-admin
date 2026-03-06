@@ -48,15 +48,10 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
     { view: 'reports', label: 'Relatórios', icon: <PresentationChartBarIcon />, roles: ['Diretor de Arte', 'Financeiro'] },
     { view: 'designers', label: 'Designers', icon: <UsersIcon />, roles: ['Diretor de Arte'] },
   ];
-  
-  const navItems = allNavItems.filter(item => loggedInUser && item.roles.includes(loggedInUser.role));
-  
-  if (isFinancial) {
-      const dashboardItem = navItems.find(item => item.view === 'dashboard');
-      if (dashboardItem) {
-          dashboardItem.label = 'Painel Financeiro';
-      }
-  }
+
+  const navItems = allNavItems
+    .filter(item => loggedInUser && item.roles.includes(loggedInUser.role))
+    .map(item => (isFinancial && item.view === 'dashboard' ? { ...item, label: 'Painel Financeiro' } : item));
 
   const initials = loggedInUser?.name
     ?.split(' ')

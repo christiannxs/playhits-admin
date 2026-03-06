@@ -65,7 +65,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   // Memoized data for the overview mode
   const overviewData = useMemo(() => {
     // Filtrar apenas Freelancers
-    const freelancers = designers.filter(d => d.type === DesignerType.Freelancer);
+    const freelancers = designers.filter(d => d.type !== DesignerType.Fixed);
     
     // Freelancer reports (for the table) - usando o período selecionado
     const freelancerReports = freelancers.map(designer => {
@@ -342,7 +342,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
             >
               <option value="overview">Visão Geral</option>
               {designers
-                  .filter(d => d.type === DesignerType.Freelancer)
+                  .filter(d => d.type !== DesignerType.Fixed)
                   .sort((a,b) => a.name.localeCompare(b.name))
                   .map(d => <option key={d.id} value={d.id}>{d.name}</option>
               )}

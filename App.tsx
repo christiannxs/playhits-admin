@@ -1,6 +1,6 @@
 
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Designer, Task, ViewType, Advance, UpdateTaskPayload } from './types';
 import { MEDIA_PRICES } from './constants';
 import Header from './components/Header';
@@ -9,6 +9,7 @@ import TasksView from './components/TasksView';
 import ReportsView from './components/ReportsView';
 import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
+import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { supabase, configurationError } from './lib/supabaseClient';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
@@ -61,8 +62,13 @@ const App: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
-          const { data: { user }, error: authError } = await supabase.auth.getUser();
+          // Garantir token válido antes de buscar dados (evita 401/RLS por token expirado)
+          const { error: refreshErr } = await supabase.auth.refreshSession();
+          if (refreshErr && process.env.NODE_ENV !== 'production') {
+            console.warn('[Playhits] refreshSession:', refreshErr.message);
+          }
 
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
           if (authError || !user) {
             await supabase.auth.signOut();
             setLoggedInUser(null);
@@ -87,17 +93,22 @@ const App: React.FC = () => {
           
           const [designersRes, tasksRes, advancesRes] = await Promise.all([
             supabase.from('designers').select('*'),
-            supabase.from('tasks').select('*'),
+            supabase.from('tasks').select('*').order('created_at', { ascending: false }),
             supabase.from('advances').select('*'),
           ]);
 
           if (designersRes.error) throw designersRes.error;
           if (tasksRes.error) throw tasksRes.error;
           if (advancesRes.error) throw advancesRes.error;
-          
-          setDesigners(designersRes.data);
-          setTasks(tasksRes.data);
-          setAdvances(advancesRes.data);
+
+          const tasksData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+          setDesigners(designersRes.data ?? []);
+          setTasks(tasksData);
+          setAdvances(advancesRes.data ?? []);
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[Playhits] Carregamento:', { tasksCount: tasksData.length, userId: user?.id, tasksError: tasksRes.error?.message });
+          }
 
         } else {
           setLoggedInUser(null);
@@ -123,9 +134,11 @@ const App: React.FC = () => {
 
     loadSessionAndData();
 
-    // Listener para mudanças de autenticação (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadSessionAndData();
+    // Só recarregar dados em login/logout; evita TOKEN_REFRESHED sobrescrever com resultado vazio
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        loadSessionAndData();
+      }
     });
 
     return () => {
@@ -162,19 +175,37 @@ const App: React.FC = () => {
     setLoggedInUser(null);
   };
 
+  /** Normaliza due_date para YYYY-MM-DD (evita problema com timezone ou input quebrado). */
+  const normalizeDueDate = (raw: string | undefined): string | null => {
+    if (raw == null || typeof raw !== 'string') return null;
+    const trimmed = raw.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+    return trimmed;
+  };
+
   const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>): Promise<boolean> => {
     setApiError(null);
     try {
-      const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
+      const designerId = (taskData.designer_id ?? '').trim();
+      const mediaType = (taskData.media_type ?? '').trim();
+      const dueDate = normalizeDueDate(taskData.due_date);
+      if (!designerId || !mediaType || !dueDate) {
+        setApiError('Preencha designer, tipo de mídia e data de entrega (formato YYYY-MM-DD).');
+        return false;
+      }
+      const value = MEDIA_PRICES[mediaType]?.price ?? 0;
       const payload = {
-        designer_id: taskData.designer_id,
-        media_type: taskData.media_type,
-        due_date: taskData.due_date,
-        artist: taskData.artist ?? '-',
-        social_media: taskData.social_media ?? '-',
-        description: taskData.description ?? '-',
+        designer_id: designerId,
+        media_type: mediaType,
+        due_date: dueDate,
+        artist: (taskData.artist ?? '-').trim() || '-',
+        social_media: (taskData.social_media ?? '-').trim() || '-',
+        description: (taskData.description ?? '-').trim() || '-',
         value,
       };
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Playhits] addTask payload:', payload);
+      }
       const { data, error } = await supabase.from('tasks').insert(payload).select().single();
 
       if (error) {
@@ -182,7 +213,19 @@ const App: React.FC = () => {
       }
 
       if (data) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[Playhits] addTask inserido:', { id: data.id, due_date: data.due_date, created_at: data.created_at });
+        }
         setTasks(prev => [data, ...prev]);
+        // Verifica se a demanda fica visível no SELECT (evita surpresa após F5 por RLS)
+        const { data: check } = await supabase.from('tasks').select('id').eq('id', data.id).maybeSingle();
+        if (!check) {
+          setApiError(
+            'Demanda foi criada, mas não está visível na leitura. Ao atualizar a página ela pode sumir. ' +
+            'Ajuste as políticas RLS da tabela "tasks" no Supabase para permitir SELECT das demandas. ' +
+            'Veja supabase/RLS_TASKS.md no projeto.'
+          );
+        }
       }
       return true;
     } catch (error: any) {
@@ -206,14 +249,21 @@ const App: React.FC = () => {
   const addTasksBulk = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number): Promise<boolean> => {
     setApiError(null);
     try {
-      const value = MEDIA_PRICES[taskData.media_type]?.price || 0;
+      const designerId = (taskData.designer_id ?? '').trim();
+      const mediaType = (taskData.media_type ?? '').trim();
+      const dueDate = normalizeDueDate(taskData.due_date);
+      if (!designerId || !mediaType || !dueDate || quantity < 1) {
+        setApiError('Preencha designer, tipo de mídia e data de entrega (formato YYYY-MM-DD) e quantidade.');
+        return false;
+      }
+      const value = MEDIA_PRICES[mediaType]?.price ?? 0;
       const row = {
-        designer_id: taskData.designer_id,
-        media_type: taskData.media_type,
-        due_date: taskData.due_date,
-        artist: taskData.artist ?? '-',
-        social_media: taskData.social_media ?? '-',
-        description: taskData.description ?? '-',
+        designer_id: designerId,
+        media_type: mediaType,
+        due_date: dueDate,
+        artist: (taskData.artist ?? '-').trim() || '-',
+        social_media: (taskData.social_media ?? '-').trim() || '-',
+        description: (taskData.description ?? '-').trim() || '-',
         value,
       };
       const tasksToInsert = Array(quantity).fill(null).map(() => ({ ...row }));
@@ -227,6 +277,16 @@ const App: React.FC = () => {
 
       if (data && data.length > 0) {
         setTasks(prev => [...data, ...prev]);
+        const firstId = data[0]?.id;
+        if (firstId) {
+          const { data: check } = await supabase.from('tasks').select('id').eq('id', firstId).maybeSingle();
+          if (!check) {
+            setApiError(
+              'Demandas foram criadas, mas não estão visíveis na leitura. Ao atualizar a página podem sumir. ' +
+              'Ajuste as políticas RLS da tabela "tasks" no Supabase. Veja supabase/RLS_TASKS.md no projeto.'
+            );
+          }
+        }
       } else {
         const { data: refreshedTasks, error: refreshError } = await supabase.from('tasks').select('*');
         if (!refreshError && refreshedTasks) {
@@ -425,6 +485,19 @@ const App: React.FC = () => {
     }
   };
 
+  // Redireciona para dashboard quando o usuário não tem permissão para a view atual (evita setState durante render).
+  useEffect(() => {
+    if (!loggedInUser) return;
+    const isDirector = loggedInUser.role === 'Diretor de Arte';
+    const isFinancial = loggedInUser.role === 'Financeiro';
+    const allowed =
+      activeView === 'dashboard' ||
+      (activeView === 'tasks' && !isFinancial) ||
+      (activeView === 'reports' && (isDirector || isFinancial)) ||
+      (activeView === 'designers' && isDirector);
+    if (!allowed) setActiveView('dashboard');
+  }, [loggedInUser, activeView]);
+
   const renderView = () => {
     if (!loggedInUser) return null;
     const isDirector = loggedInUser.role === 'Diretor de Arte';
@@ -434,22 +507,13 @@ const App: React.FC = () => {
       case 'dashboard':
         return <DashboardView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
       case 'tasks':
-        if (isFinancial) {
-          setActiveView('dashboard');
-          return null;
-        }
+        if (isFinancial) return null;
         return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onAddTasksBulk={addTasksBulk} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} />;
       case 'reports':
-        if (!isDirector && !isFinancial) {
-            setActiveView('dashboard');
-            return null;
-        }
+        if (!isDirector && !isFinancial) return null;
         return <ReportsView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
       case 'designers':
-         if (!isDirector) {
-            setActiveView('dashboard');
-            return null;
-         }
+        if (!isDirector) return null;
         return <DesignersView 
             designers={designers} 
             tasks={tasks} 
@@ -461,7 +525,6 @@ const App: React.FC = () => {
             onDeleteAdvance={deleteAdvance} 
         />;
       default:
-        setActiveView('dashboard');
         return null;
     }
   };
@@ -496,7 +559,12 @@ const App: React.FC = () => {
               >&times;</button>
             </div>
           )}
-          {renderView()}
+          <ViewErrorBoundary
+            viewName={activeView === 'dashboard' ? 'Dashboard' : activeView === 'tasks' ? 'Demandas' : activeView === 'reports' ? 'Relatórios' : activeView === 'designers' ? 'Designers' : 'Página'}
+            onReset={() => setActiveView('dashboard')}
+          >
+            {renderView()}
+          </ViewErrorBoundary>
           </div>
         </main>
         <footer className="bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">

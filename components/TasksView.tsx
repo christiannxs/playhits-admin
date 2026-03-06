@@ -69,13 +69,24 @@ const TaskTable: React.FC<{
 
 
 const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, loggedInUser }) => {
-  const isDirector = loggedInUser.role === 'Diretor de Arte';
-  const filtersStorageKey = `tasks-view-filters-${loggedInUser.id}`;
-  const initialWeekRange = getWeekRange(new Date());
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeDesigners = Array.isArray(designers) ? designers : [];
+  const isDirector = loggedInUser?.role === 'Diretor de Arte';
+  const filtersStorageKey = `tasks-view-filters-${loggedInUser?.id ?? 'default'}`;
 
-  const defaultFilterDesigner = isDirector ? 'all' : loggedInUser.id;
-  const defaultStartDate = toLocalDateString(initialWeekRange.start);
-  const defaultEndDate = toLocalDateString(initialWeekRange.end);
+  let defaultStartDate = '';
+  let defaultEndDate = '';
+  try {
+    const initialWeekRange = getWeekRange(new Date());
+    defaultStartDate = toLocalDateString(initialWeekRange.start);
+    defaultEndDate = toLocalDateString(initialWeekRange.end);
+  } catch {
+    const today = new Date();
+    defaultStartDate = today.toISOString().slice(0, 10);
+    defaultEndDate = today.toISOString().slice(0, 10);
+  }
+
+  const defaultFilterDesigner = isDirector ? 'all' : (loggedInUser?.id ?? 'all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -132,7 +143,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     }
   }, [filtersStorageKey, filterDesigner, startDate, endDate]);
   
-  const designerMap = useMemo(() => new Map(designers.map(d => [d.id, d.name])), [designers]);
+  const designerMap = useMemo(() => new Map(safeDesigners.map(d => [d.id, d.name])), [safeDesigners]);
 
   const openAddModal = () => {
     setEditingTask(null);
@@ -154,10 +165,11 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
 
   const openEditModal = (task: Task) => {
     setEditingTask(task);
+    const dueDateStr = task.due_date != null ? String(task.due_date).split('T')[0] : '';
     setFormData({
       designer_id: task.designer_id,
       media_type: task.media_type,
-      due_date: task.due_date.split('T')[0],
+      due_date: dueDateStr,
       artist: task.artist || '-',
       social_media: task.social_media || '-',
       description: task.description || '-',
@@ -255,35 +267,55 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   };
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    return safeTasks.filter(task => {
       const designerMatch = filterDesigner === 'all' || task.designer_id === filterDesigner;
 
       const dateMatch = (() => {
         if (!startDate || !endDate) {
           return true; // Don't filter if dates aren't set
         }
-        
-        const taskDueDate = task.due_date.substring(0, 10);
-        
-        // Lexicographical comparison works for 'YYYY-MM-DD' format.
+        const raw = task.due_date != null ? String(task.due_date) : '';
+        const taskDueDate = raw.trim().slice(0, 10);
+        if (!taskDueDate || taskDueDate.length < 10) return false;
         return taskDueDate >= startDate && taskDueDate <= endDate;
       })();
 
       return designerMatch && dateMatch;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [tasks, filterDesigner, startDate, endDate]);
+  }, [safeTasks, filterDesigner, startDate, endDate]);
   
   const groupedTasks = useMemo(() => {
-    const groups: Record<string, { weekRange: { start: Date, end: Date }, tasks: Task[] }> = {};
-    
-    filteredTasks.forEach(task => {
-        const weekRange = getWeekRange(new Date(task.due_date));
+    const fallbackKey = 'sem-data';
+    const groups: Record<string, { weekRange: { start: Date; end: Date }; tasks: Task[] }> = {};
+
+    try {
+      filteredTasks.forEach(task => {
+        const dueDate = (task.due_date != null ? String(task.due_date) : '').trim();
+        if (!dueDate) {
+          if (!groups[fallbackKey]) {
+            groups[fallbackKey] = { weekRange: getWeekRange(new Date()), tasks: [] };
+          }
+          groups[fallbackKey].tasks.push(task);
+          return;
+        }
+        const date = new Date(dueDate);
+        if (Number.isNaN(date.getTime())) {
+          if (!groups[fallbackKey]) {
+            groups[fallbackKey] = { weekRange: getWeekRange(new Date()), tasks: [] };
+          }
+          groups[fallbackKey].tasks.push(task);
+          return;
+        }
+        const weekRange = getWeekRange(date);
         const weekKey = toLocalDateString(weekRange.start);
         if (!groups[weekKey]) {
-            groups[weekKey] = { weekRange, tasks: [] };
+          groups[weekKey] = { weekRange, tasks: [] };
         }
         groups[weekKey].tasks.push(task);
-    });
+      });
+    } catch (_e) {
+      groups[fallbackKey] = { weekRange: getWeekRange(new Date()), tasks: [...filteredTasks] };
+    }
 
     return groups;
   }, [filteredTasks]);
@@ -335,7 +367,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
         {isDirector && (
           <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-sm">
             <option value="all">Todos os Designers</option>
-            {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         )}
         <div className="flex items-center gap-2">
@@ -375,7 +407,9 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
               <details key={weekKey} className="bg-base-100/90 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 overflow-hidden group" open>
                 <summary className="p-4 font-bold text-base cursor-pointer hover:bg-base-200/40 list-none flex items-center gap-2 transition-smooth rounded-t-2xl">
                   <ClockIcon className="h-5 w-5 text-brand-primary flex-shrink-0" />
-                  Semana de {formatDate(group.weekRange.start.toISOString())} a {formatDate(group.weekRange.end.toISOString())}
+                  {weekKey === 'sem-data'
+                    ? 'Demandas sem data definida'
+                    : `Semana de ${formatDate(toLocalDateString(group.weekRange.start))} a ${formatDate(toLocalDateString(group.weekRange.end))}`}
                 </summary>
                 <TaskTable
                   tasks={group.tasks}
@@ -402,7 +436,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
                 <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
                 <option value="">Selecione um designer</option>
-                {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
             </div>
           )}
@@ -442,7 +476,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
               required
             >
               <option value="">Selecione um designer</option>
-              {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
           
@@ -492,7 +526,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           
           <div className="bg-base-200/50 rounded-xl p-3 mt-4">
             <p className="text-sm text-base-content-secondary">
-              <strong>Resumo:</strong> Serão criadas <strong className="text-base-content">{bulkFormData.quantity}</strong> demanda(s) do tipo <strong className="text-base-content">{bulkFormData.media_type || 'N/A'}</strong> para <strong className="text-base-content">{bulkFormData.designer_id ? designers.find(d => d.id === bulkFormData.designer_id)?.name || 'N/A' : 'N/A'}</strong> com entrega em <strong className="text-base-content">{bulkFormData.due_date || 'N/A'}</strong>.
+              <strong>Resumo:</strong> Serão criadas <strong className="text-base-content">{bulkFormData.quantity}</strong> demanda(s) do tipo <strong className="text-base-content">{bulkFormData.media_type || 'N/A'}</strong> para <strong className="text-base-content">{bulkFormData.designer_id ? safeDesigners.find(d => d.id === bulkFormData.designer_id)?.name || 'N/A' : 'N/A'}</strong> com entrega em <strong className="text-base-content">{bulkFormData.due_date || 'N/A'}</strong>.
             </p>
           </div>
           

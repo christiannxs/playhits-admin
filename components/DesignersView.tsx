@@ -228,8 +228,8 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
     setEditFormData({
         name: designer.name,
         role: designer.role,
-        type: designer.type,
-        salary: designer.salary || 0,
+        type: designer.type ?? DesignerType.Freelancer,
+        salary: designer.salary ?? 0,
     });
     setIsEditModalOpen(true);
   };
