@@ -4,7 +4,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Designer, Task, DesignerType, Advance } from '../types';
 import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString } from '../utils/dateUtils';
 import { MoneyIcon, UsersIcon, CheckCircleIcon, CreditCardIcon, ClockIcon, PrinterIcon, CheckIcon } from './icons/Icons';
-import { MEDIA_PRICES } from '../constants';
 
 interface DashboardViewProps {
   designers: Designer[];
@@ -466,7 +465,7 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
             <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
                 <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
                     <MoneyIcon className="h-5 w-5 text-brand-primary" />
-                    Proposta p/ Designers 2025 (PHD)
+                    Proposta P/ Desing 2026 (PHD)
                 </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -474,17 +473,50 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                             <tr>
                                 <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Mídia</th>
                                 <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider">Descrição</th>
-                                <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider text-right">Valor</th>
+                                <th className="p-3 font-semibold text-base-content-secondary uppercase tracking-wider text-right">Valor Sugerido</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {Object.values(MEDIA_PRICES).map(media => (
-                                <tr key={media.name} className="border-b border-base-300/50">
-                                    <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">{media.name}</td>
-                                    <td className="p-3 text-base-content-secondary text-sm">{media.description}</td>
-                                    <td className="p-3 font-semibold text-base-content text-right align-top">{formatCurrency(media.price)}</td>
-                                </tr>
-                            ))}
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Motion</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Artes animadas até 30s</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 35</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Teaser</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Vídeos acima de 30s ou mais complexos</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 45</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Flyer</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Criação estática do zero</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 18</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Catálogo / Carrossel</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Materiais com múltiplas páginas</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 35</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Outros</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Materiais derivados ou simples</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 12</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Criação de ID</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Capa oficial de lançamento</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 40</td>
+                            </tr>
+                            <tr className="border-b border-base-300/50">
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Ônibus</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Plotagem</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 45</td>
+                            </tr>
+                            <tr>
+                                <td className="p-3 font-medium text-base-content align-top whitespace-nowrap">Plantão Final de Semana</td>
+                                <td className="p-3 text-base-content-secondary text-sm">Disponibilidade fim de semana</td>
+                                <td className="p-3 font-semibold text-base-content text-right align-top">R$ 110</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
