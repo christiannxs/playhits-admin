@@ -27,11 +27,6 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
     description: 'MOLDURAS, DERIVAR FORMATO, TAPETES, MÍDIA DE SITE, OUTDOOR',
     price: 12.00 
   },
-  'Ajuste': { 
-    name: 'Ajuste', 
-    description: 'PEQUENAS ALTERAÇÕES (A PARTIR DA 4)',
-    price: 10.00 
-  },
   'Criacao de ID': { 
     name: 'Criação de ID', 
     description: 'CAPA DE DVD, SINGLE, CD OFICIAL DO ARTISTA',
