@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Designer, Task, UpdateTaskPayload } from '../types';
+import { Designer, Task, TaskApprovalStatus, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
-import { formatDate, formatCurrency, getWeekRange, toLocalDateString } from '../utils/dateUtils';
+import { formatDate, formatCurrency, getWeekRange, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
 import Modal from './Modal';
 import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardDocumentListIcon } from './icons/Icons';
 
@@ -30,12 +30,16 @@ const TaskTable: React.FC<{
                   <th className="p-4 font-semibold text-base-content-secondary">Mídia</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Designer</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Entrega</th>
+                  {isDirector && <th className="p-4 font-semibold text-base-content-secondary">Status</th>}
                   <th className="p-4 font-semibold text-base-content-secondary">Valor</th>
                   {isDirector && <th className="p-4 font-semibold text-base-content-secondary">Ações</th>}
               </tr>
           </thead>
           <tbody>
-              {tasks.map(task => (
+              {tasks.map(task => {
+                const payable = getTaskPayableValue(task);
+                const isRejected = task.approval_status === 'rejected';
+                return (
                   <tr key={task.id} className="border-b border-base-300/40 hover:bg-base-100/50 last:border-b-0 transition-smooth">
                       <td className="p-4 align-top">
                           <p className="font-semibold text-base-content">{task.media_type}</p>
@@ -47,7 +51,17 @@ const TaskTable: React.FC<{
                       </td>
                       <td className="p-4 text-base-content-secondary align-top">{designerMap.get(task.designer_id) || 'N/A'}</td>
                       <td className="p-4 text-base-content-secondary align-top">{formatDate(task.due_date)}</td>
-                      <td className="p-4 font-semibold text-base-content align-top">{formatCurrency(task.value)}</td>
+                      {isDirector && (
+                          <td className="p-4 align-top">
+                              <span className={`text-sm font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
+                                {isRejected ? 'Reprovada' : 'Aprovada'}
+                              </span>
+                          </td>
+                      )}
+                      <td className="p-4 font-semibold text-base-content align-top">
+                        {formatCurrency(payable)}
+                        {isRejected && <span className="text-xs text-base-content-secondary ml-1">(50%)</span>}
+                      </td>
                       {isDirector && (
                           <td className="p-4 align-top">
                               <div className="flex items-center space-x-2">
@@ -61,7 +75,8 @@ const TaskTable: React.FC<{
                           </td>
                       )}
                   </tr>
-              ))}
+                );
+              })}
           </tbody>
       </table>
     </div>
@@ -92,15 +107,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> = { 
+  const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> & { approval_status?: Task['approval_status'] } = { 
     designer_id: isDirector ? '' : loggedInUser.id, 
     media_type: '', 
     due_date: '', 
     artist: '-', 
     social_media: '-',
     description: '-',
+    approval_status: 'approved',
   };
-  const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'>>(initialFormState);
+  const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { approval_status?: Task['approval_status'] }>(initialFormState);
   
   const [bulkFormData, setBulkFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { quantity: number }>({
     ...initialFormState,
@@ -173,6 +189,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
       artist: task.artist || '-',
       social_media: task.social_media || '-',
       description: task.description || '-',
+      approval_status: task.approval_status ?? 'approved',
     });
     setIsModalOpen(true);
   };
@@ -218,7 +235,11 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     }
 
     if (editingTask) {
-      onUpdateTask(editingTask.id, { ...payload, value: MEDIA_PRICES[formData.media_type]?.price ?? 0 });
+      onUpdateTask(editingTask.id, {
+        ...payload,
+        value: MEDIA_PRICES[formData.media_type]?.price ?? 0,
+        approval_status: formData.approval_status ?? 'approved',
+      });
       closeModal();
       return;
     }
@@ -451,6 +472,19 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
             <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
           </div>
+          {isDirector && (
+            <div>
+              <label className="block text-sm font-medium text-base-content-secondary mb-1">Status da demanda</label>
+              <select
+                value={formData.approval_status ?? 'approved'}
+                onChange={e => setFormData({ ...formData, approval_status: e.target.value as TaskApprovalStatus })}
+                className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
+              >
+                <option value="approved">Aprovada (valor integral)</option>
+                <option value="rejected">Reprovada (paga metade)</option>
+              </select>
+            </div>
+          )}
           <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
             <button type="submit" disabled={isSubmitting} className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:cursor-not-allowed">
               {isSubmitting ? 'Salvando...' : (editingTask ? 'Salvar Alterações' : 'Adicionar')}

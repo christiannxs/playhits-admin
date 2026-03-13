@@ -194,6 +194,7 @@ const App: React.FC = () => {
         return false;
       }
       const value = MEDIA_PRICES[mediaType]?.price ?? 0;
+      const approvalStatus = taskData.approval_status === 'rejected' ? 'rejected' : 'approved';
       const payload = {
         designer_id: designerId,
         media_type: mediaType,
@@ -202,6 +203,7 @@ const App: React.FC = () => {
         social_media: (taskData.social_media ?? '-').trim() || '-',
         description: (taskData.description ?? '-').trim() || '-',
         value,
+        approval_status: approvalStatus,
       };
       if (process.env.NODE_ENV !== 'production') {
         console.log('[Playhits] addTask payload:', payload);
@@ -265,6 +267,7 @@ const App: React.FC = () => {
         social_media: (taskData.social_media ?? '-').trim() || '-',
         description: (taskData.description ?? '-').trim() || '-',
         value,
+        approval_status: 'approved' as const,
       };
       const tasksToInsert = Array(quantity).fill(null).map(() => ({ ...row }));
 

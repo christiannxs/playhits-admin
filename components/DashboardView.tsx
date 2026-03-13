@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Designer, Task, DesignerType, Advance } from '../types';
-import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString } from '../utils/dateUtils';
+import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
 import { MoneyIcon, UsersIcon, CheckCircleIcon, CreditCardIcon, ClockIcon, PrinterIcon, CheckIcon } from './icons/Icons';
 
 interface DashboardViewProps {
@@ -94,7 +94,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     // Calcular custo total apenas de freelancers
     const periodFreelancerTotal = tasksInPeriod
         .filter(t => freelancers.some(f => f.id === t.designer_id))
-        .reduce((sum, task) => sum + task.value, 0);
+        .reduce((sum, task) => sum + getTaskPayableValue(task), 0);
         
     const totalPeriodSpend = periodFreelancerTotal;
     const completedTasksInPeriod = tasksInPeriod.length;
@@ -119,7 +119,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         new Date(task.created_at) >= currentPeriodRange.start &&
         new Date(task.created_at) <= currentPeriodRange.end
     );
-    const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
+    const taskTotal = tasksInPeriod.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
     const advancesInPeriod = advances.filter(adv =>
         adv.designer_id === designer.id &&
         new Date(adv.date) >= currentPeriodRange.start &&
@@ -276,7 +276,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
                         <tr key={task.id} className="border-b border-base-300/50">
                           <td className="p-2">{task.media_type}</td>
                           <td className="p-2">{formatDate(task.due_date)}</td>
-                          <td className="p-2 text-right font-medium">{formatCurrency(task.value)}</td>
+                          <td className="p-2 text-right font-medium">{formatCurrency(getTaskPayableValue(task))}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -377,7 +377,7 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
         const created = new Date(task.created_at);
         return created >= weekRange.start && created <= weekRange.end;
     });
-    const weeklyTaskTotal = currentPeriodTasks.reduce((sum, task) => sum + task.value, 0);
+    const weeklyTaskTotal = currentPeriodTasks.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
 
     const advancesInPeriod = advances.filter(adv =>
         adv.designer_id === loggedInUser.id &&

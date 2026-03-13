@@ -14,6 +14,9 @@ export interface Designer {
   salary?: number;
 }
 
+/** Status de aprovação da demanda. Reprovada = paga metade do valor. */
+export type TaskApprovalStatus = 'approved' | 'rejected';
+
 export interface Task {
   id: string;
   designer_id: string;
@@ -21,13 +24,15 @@ export interface Task {
   due_date: string; // YYYY-MM-DD
   created_at: string; // Supabase default timestamp
   value: number;
+  /** Se 'rejected', o valor pago é metade. Omitido ou 'approved' = valor integral. */
+  approval_status?: TaskApprovalStatus;
   artist?: string;
   social_media?: string;
   description?: string;
 }
 
 // Define um tipo específico para os dados que podem ser atualizados em uma tarefa.
-export type UpdateTaskPayload = Pick<Task, 'designer_id' | 'media_type' | 'due_date' | 'artist' | 'social_media' | 'value' | 'description'>;
+export type UpdateTaskPayload = Pick<Task, 'designer_id' | 'media_type' | 'due_date' | 'artist' | 'social_media' | 'value' | 'description' | 'approval_status'>;
 
 
 export interface Advance {

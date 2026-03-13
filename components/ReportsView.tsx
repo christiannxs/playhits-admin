@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, DesignerType, Advance } from '../types';
-import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory } from '../utils/dateUtils';
+import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, getTaskPayableValue } from '../utils/dateUtils';
 import { ClipboardCopyIcon, CalendarIcon, UserIcon, CashIcon, CheckCircleIcon, PresentationChartBarIcon } from './icons/Icons';
 
 interface ReportsViewProps {
@@ -26,7 +26,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
     return freelancers.map(designer => {
       const allTasks = tasks.filter(t => t.designer_id === designer.id);
       const allAdvances = advances.filter(a => a.designer_id === designer.id);
-      const totalFromTasks = allTasks.reduce((sum, t) => sum + t.value, 0);
+      const totalFromTasks = allTasks.reduce((sum, t) => sum + getTaskPayableValue(t), 0);
       const totalAdvancesAmount = allAdvances.reduce((sum, a) => sum + a.amount, 0);
       const netPayment = totalFromTasks - totalAdvancesAmount;
       return {
@@ -54,7 +54,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
         new Date(task.created_at) >= weekRange.start &&
         new Date(task.created_at) <= weekRange.end
       );
-      const taskTotal = completedTasks.reduce((sum, task) => sum + task.value, 0);
+      const taskTotal = completedTasks.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
       const advancesInPeriod = advances.filter(adv =>
         adv.designer_id === freelancer.id &&
         new Date(adv.date) >= weekRange.start &&
@@ -91,7 +91,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
         const created = new Date(task.created_at);
         return created >= monthRange.start && created <= monthRange.end;
     })
-    .reduce((sum, task) => sum + task.value, 0);
+    .reduce((sum, task) => sum + getTaskPayableValue(task), 0);
 
   const monthlyAdvancesTotal = advances
     .filter(adv => {
@@ -122,7 +122,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
             mediaSummary[task.media_type] = { count: 0, total: 0 };
           }
           mediaSummary[task.media_type].count++;
-          mediaSummary[task.media_type].total += task.value;
+          mediaSummary[task.media_type].total += getTaskPayableValue(task);
         });
 
         Object.entries(mediaSummary).forEach(([mediaType, summary]) => {
@@ -290,7 +290,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                                                     <div key={task.id} className="bg-base-200/30 p-2 rounded border border-base-300/50 text-sm">
                                                         <div className="flex justify-between">
                                                             <span className="font-medium text-base-content">{task.media_type}</span>
-                                                            <span className="text-base-content-secondary">{formatCurrency(task.value)}</span>
+                                                            <span className="text-base-content-secondary">{formatCurrency(getTaskPayableValue(task))}</span>
                                                         </div>
                                                     </div>
                                                 ))}

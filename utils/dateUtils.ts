@@ -1,4 +1,16 @@
 import { Task, Advance } from '../types';
+import { REJECTED_TASK_PAYMENT_MULTIPLIER } from '../constants';
+
+/**
+ * Retorna o valor a ser pago pela demanda.
+ * Se approval_status === 'rejected', retorna metade do value; caso contrário, o value integral.
+ */
+export const getTaskPayableValue = (task: Task): number => {
+  if (task.approval_status === 'rejected') {
+    return Math.round((task.value * REJECTED_TASK_PAYMENT_MULTIPLIER) * 100) / 100;
+  }
+  return task.value;
+};
 
 const TIMEZONE = 'America/Fortaleza';
 
@@ -123,7 +135,7 @@ export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task
 
   [...designerTasks, ...designerAdvances].forEach(item => {
     const date = 'created_at' in item ? item.created_at : item.date;
-    const value = 'value' in item ? item.value : -item.amount;
+    const value = 'value' in item ? getTaskPayableValue(item as Task) : -item.amount;
     const weekRange = getWeekRange(new Date(date));
     const weekKey = toLocalDateString(weekRange.start); // Use timezone-aware date string as key
 
