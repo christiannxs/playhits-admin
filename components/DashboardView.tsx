@@ -73,7 +73,8 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
             new Date(task.created_at) >= currentPeriodRange.start &&
             new Date(task.created_at) <= currentPeriodRange.end
         );
-        const taskTotal = tasksInPeriod.reduce((sum, task) => sum + task.value, 0);
+        // Usar sempre o mesmo cálculo do valor pagável (considerando reprovações)
+        const taskTotal = tasksInPeriod.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
         const advancesInPeriod = advances.filter(adv =>
             adv.designer_id === designer.id &&
             new Date(adv.date) >= currentPeriodRange.start &&
