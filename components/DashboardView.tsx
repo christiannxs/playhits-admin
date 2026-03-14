@@ -521,6 +521,11 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                         </tbody>
                     </table>
                 </div>
+                {loggedInUser.role === 'Freelancer' && (
+                    <p className="mt-4 text-xs text-base-content-secondary leading-relaxed">
+                        Observação: demandas reprovadas serão remuneradas com <span className="font-semibold">30% do valor</span> da mídia correspondente.
+                    </p>
+                )}
             </div>
         </div>
     )

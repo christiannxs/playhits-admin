@@ -44,5 +44,5 @@ export const MEDIA_PRICES: Record<string, MediaType> = {
   },
 };
 
-/** Multiplicador do valor quando a demanda é reprovada (ex.: 0.5 = metade). */
-export const REJECTED_TASK_PAYMENT_MULTIPLIER = 0.5;
+/** Multiplicador do valor quando a demanda é reprovada (ex.: 0.3 = 30%). */
+export const REJECTED_TASK_PAYMENT_MULTIPLIER = 0.3;

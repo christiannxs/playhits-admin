@@ -3,7 +3,7 @@ import { REJECTED_TASK_PAYMENT_MULTIPLIER } from '../constants';
 
 /**
  * Retorna o valor a ser pago pela demanda.
- * Se approval_status === 'rejected', retorna metade do value; caso contrário, o value integral.
+ * Se approval_status === 'rejected', retorna 30% do value; caso contrário, o value integral.
  */
 export const getTaskPayableValue = (task: Task): number => {
   if (task.approval_status === 'rejected') {

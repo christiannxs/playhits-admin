@@ -60,7 +60,7 @@ const TaskTable: React.FC<{
                       )}
                       <td className="p-4 font-semibold text-base-content align-top">
                         {formatCurrency(payable)}
-                        {isRejected && <span className="text-xs text-base-content-secondary ml-1">(50%)</span>}
+                        {isRejected && <span className="text-xs text-base-content-secondary ml-1">(30%)</span>}
                       </td>
                       {isDirector && (
                           <td className="p-4 align-top">
