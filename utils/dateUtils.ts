@@ -125,6 +125,26 @@ export const formatDate = (dateString: string) => {
     }
 };
 
+/**
+ * Converte due_date da demanda (YYYY-MM-DD) para Date em Fortaleza (-03).
+ * Usa meio-dia para evitar que UTC meia-noite vire dia anterior no fuso.
+ * Usado para decidir em qual semana/período a demanda entra no cálculo.
+ */
+export const getTaskDueDateAsDate = (dueDate: string | null | undefined): Date | null => {
+  if (dueDate == null || typeof dueDate !== 'string') return null;
+  const trimmed = dueDate.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const d = new Date(`${trimmed}T12:00:00.000-03:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/** Verifica se a demanda cai dentro do período [start, end] pela data de entrega (due_date). */
+export const isTaskInPeriod = (task: Task, start: Date, end: Date): boolean => {
+  const d = getTaskDueDateAsDate(task.due_date);
+  if (!d) return false;
+  return d >= start && d <= end;
+};
+
 export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task[], allAdvances: Advance[]) => {
   const designerTasks = allTasks.filter(t => t.designer_id === designerId && t.value > 0);
   const designerAdvances = allAdvances.filter(a => a.designer_id === designerId);
@@ -133,16 +153,23 @@ export const calculateWeeklyPaymentHistory = (designerId: string, allTasks: Task
 
   const weeklyTotals: Record<string, { range: { start: Date; end: Date }; total: number }> = {};
 
-  [...designerTasks, ...designerAdvances].forEach(item => {
-    const date = 'created_at' in item ? item.created_at : item.date;
-    const value = 'value' in item ? getTaskPayableValue(item as Task) : -item.amount;
-    const weekRange = getWeekRange(new Date(date));
-    const weekKey = toLocalDateString(weekRange.start); // Use timezone-aware date string as key
-
+  designerTasks.forEach(task => {
+    const refDate = getTaskDueDateAsDate(task.due_date);
+    if (!refDate) return;
+    const weekRange = getWeekRange(refDate);
+    const weekKey = toLocalDateString(weekRange.start);
     if (!weeklyTotals[weekKey]) {
       weeklyTotals[weekKey] = { range: weekRange, total: 0 };
     }
-    weeklyTotals[weekKey].total += value;
+    weeklyTotals[weekKey].total += getTaskPayableValue(task);
+  });
+  designerAdvances.forEach(adv => {
+    const weekRange = getWeekRange(new Date(adv.date));
+    const weekKey = toLocalDateString(weekRange.start);
+    if (!weeklyTotals[weekKey]) {
+      weeklyTotals[weekKey] = { range: weekRange, total: 0 };
+    }
+    weeklyTotals[weekKey].total -= adv.amount;
   });
 
   return Object.values(weeklyTotals)

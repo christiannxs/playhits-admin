@@ -14,7 +14,7 @@ export interface Designer {
   salary?: number;
 }
 
-/** Status de aprovação da demanda. Reprovada = paga metade do valor. */
+/** Status de aprovação da demanda. Reprovada = paga 30% do valor. */
 export type TaskApprovalStatus = 'approved' | 'rejected';
 
 export interface Task {
@@ -24,7 +24,7 @@ export interface Task {
   due_date: string; // YYYY-MM-DD
   created_at: string; // Supabase default timestamp
   value: number;
-  /** Se 'rejected', o valor pago é metade. Omitido ou 'approved' = valor integral. */
+  /** Se 'rejected', o valor pago é 30%. Omitido ou 'approved' = valor integral. */
   approval_status?: TaskApprovalStatus;
   artist?: string;
   social_media?: string;

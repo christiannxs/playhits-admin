@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Designer, Task, DesignerType, Advance } from '../types';
-import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, getTaskPayableValue } from '../utils/dateUtils';
+import { getWeekRange, getMonthRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, getTaskPayableValue, isTaskInPeriod } from '../utils/dateUtils';
 import { ClipboardCopyIcon, CalendarIcon, UserIcon, CashIcon, CheckCircleIcon, PresentationChartBarIcon } from './icons/Icons';
 
 interface ReportsViewProps {
@@ -51,8 +51,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
     return freelancers.map(freelancer => {
       const completedTasks = tasks.filter(task =>
         task.designer_id === freelancer.id &&
-        new Date(task.created_at) >= weekRange.start &&
-        new Date(task.created_at) <= weekRange.end
+        isTaskInPeriod(task, weekRange.start, weekRange.end)
       );
       const taskTotal = completedTasks.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
       const advancesInPeriod = advances.filter(adv =>

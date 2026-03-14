@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Designer, DesignerType, Advance, Task } from '../types';
-import { formatCurrency, formatDate, getWeekRange, getMonthRange, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
+import { formatCurrency, formatDate, getWeekRange, getMonthRange, toLocalDateString, getTaskPayableValue, isTaskInPeriod } from '../utils/dateUtils';
 import Modal from './Modal';
 import { SearchIcon, PencilIcon, CashIcon, TrashIcon, PlusIcon, UsersIcon } from './icons/Icons';
 
@@ -52,12 +52,11 @@ const DesignerCard: React.FC<{
         productionValue = tasksInMonth.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
         productionLabel = 'Produção do Mês';
         
-    } else { // Freelancer
+    } else { // Freelancer - semana pela data de entrega (due_date)
         const weekRange = getWeekRange(today);
-        const tasksInPeriod = tasks.filter(task => 
+        const tasksInPeriod = tasks.filter(task =>
             task.designer_id === designer.id &&
-            new Date(task.created_at) >= weekRange.start &&
-            new Date(task.created_at) <= weekRange.end
+            isTaskInPeriod(task, weekRange.start, weekRange.end)
         );
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
 

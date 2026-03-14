@@ -223,13 +223,13 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     const dueDateStr = payload.due_date;
     if (startDate && endDate) {
       if (dueDateStr < startDate || dueDateStr > endDate) {
-        const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
-        const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
-        setStartDate(newStartDate);
-        setEndDate(newEndDate);
+        // Navega para a semana da demanda (sábado a sexta), em vez de expandir o intervalo
+        const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
+        setStartDate(toLocalDateString(weekRange.start));
+        setEndDate(toLocalDateString(weekRange.end));
       }
     } else {
-      const weekRange = getWeekRange(new Date(dueDateStr));
+      const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
       setStartDate(toLocalDateString(weekRange.start));
       setEndDate(toLocalDateString(weekRange.end));
     }
@@ -270,13 +270,12 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     const dueDateStr = bulkFormData.due_date;
     if (startDate && endDate) {
       if (dueDateStr < startDate || dueDateStr > endDate) {
-        const newStartDate = dueDateStr < startDate ? dueDateStr : startDate;
-        const newEndDate = dueDateStr > endDate ? dueDateStr : endDate;
-        setStartDate(newStartDate);
-        setEndDate(newEndDate);
+        const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
+        setStartDate(toLocalDateString(weekRange.start));
+        setEndDate(toLocalDateString(weekRange.end));
       }
     } else {
-      const weekRange = getWeekRange(new Date(dueDateStr));
+      const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
       setStartDate(toLocalDateString(weekRange.start));
       setEndDate(toLocalDateString(weekRange.end));
     }
@@ -319,7 +318,8 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           groups[fallbackKey].tasks.push(task);
           return;
         }
-        const date = new Date(dueDate);
+        // Usar meio-dia no fuso -03 para evitar que "YYYY-MM-DD" vire dia anterior (UTC meia-noite)
+        const date = new Date(dueDate.length >= 10 ? dueDate.slice(0, 10) + 'T12:00:00.000-03:00' : dueDate);
         if (Number.isNaN(date.getTime())) {
           if (!groups[fallbackKey]) {
             groups[fallbackKey] = { weekRange: getWeekRange(new Date()), tasks: [] };
@@ -481,7 +481,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                 className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
               >
                 <option value="approved">Aprovada (valor integral)</option>
-                <option value="rejected">Reprovada (paga metade)</option>
+                <option value="rejected">Reprovada (paga 30%)</option>
               </select>
             </div>
           )}

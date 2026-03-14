@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Designer, Task, DesignerType, Advance } from '../types';
-import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
+import { getWeekRange, getMonthRange, getYearRange, formatCurrency, formatDate, calculateWeeklyPaymentHistory, toLocalDateString, getTaskPayableValue, isTaskInPeriod } from '../utils/dateUtils';
 import { MoneyIcon, UsersIcon, CheckCircleIcon, CreditCardIcon, ClockIcon, PrinterIcon, CheckIcon } from './icons/Icons';
 
 interface DashboardViewProps {
@@ -70,8 +70,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     const freelancerReports = freelancers.map(designer => {
         const tasksInPeriod = tasks.filter(task =>
             task.designer_id === designer.id &&
-            new Date(task.created_at) >= currentPeriodRange.start &&
-            new Date(task.created_at) <= currentPeriodRange.end
+            isTaskInPeriod(task, currentPeriodRange.start, currentPeriodRange.end)
         );
         // Usar sempre o mesmo cálculo do valor pagável (considerando reprovações)
         const taskTotal = tasksInPeriod.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
@@ -86,11 +85,10 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         return { designer, taskTotal, advancesTotal, totalPayment, periodKey };
     });
 
-    // Stats for the cards - usando o período selecionado
-    const tasksInPeriod = tasks.filter(task => {
-        const created = new Date(task.created_at);
-        return created >= currentPeriodRange.start && created <= currentPeriodRange.end;
-    });
+    // Stats for the cards - usando data de entrega (due_date) para alocar demanda na semana correta
+    const tasksInPeriod = tasks.filter(task =>
+        isTaskInPeriod(task, currentPeriodRange.start, currentPeriodRange.end)
+    );
     
     // Calcular custo total apenas de freelancers
     const periodFreelancerTotal = tasksInPeriod
@@ -114,11 +112,10 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     let recentAdvances: Advance[] = [];
     const paymentHistory = calculateWeeklyPaymentHistory(designer.id, tasks, advances);
 
-    // Lógica exclusiva para Freelancer - usando o período selecionado
-    const tasksInPeriod = tasks.filter(task => 
+    // Lógica exclusiva para Freelancer - período pela data de entrega (due_date)
+    const tasksInPeriod = tasks.filter(task =>
         task.designer_id === designer.id &&
-        new Date(task.created_at) >= currentPeriodRange.start &&
-        new Date(task.created_at) <= currentPeriodRange.end
+        isTaskInPeriod(task, currentPeriodRange.start, currentPeriodRange.end)
     );
     const taskTotal = tasksInPeriod.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
     const advancesInPeriod = advances.filter(adv =>
@@ -375,8 +372,7 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
     const weekRange = getWeekRange(today);
     currentPeriodTasks = tasks.filter(task => {
         if (task.designer_id !== loggedInUser.id) return false;
-        const created = new Date(task.created_at);
-        return created >= weekRange.start && created <= weekRange.end;
+        return isTaskInPeriod(task, weekRange.start, weekRange.end);
     });
     const weeklyTaskTotal = currentPeriodTasks.reduce((sum, task) => sum + getTaskPayableValue(task), 0);
 
@@ -521,11 +517,9 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                         </tbody>
                     </table>
                 </div>
-                {loggedInUser.role === 'Freelancer' && (
-                    <p className="mt-4 text-xs text-base-content-secondary leading-relaxed">
-                        Observação: demandas reprovadas serão remuneradas com <span className="font-semibold">30% do valor</span> da mídia correspondente.
-                    </p>
-                )}
+                <p className="mt-4 text-xs text-base-content-secondary leading-relaxed">
+                    Observação: materiais reprovados serão pagos com <span className="font-semibold">30% do valor total da demanda</span>.
+                </p>
             </div>
         </div>
     )
