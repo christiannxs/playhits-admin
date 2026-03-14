@@ -4,7 +4,7 @@ import { Designer, Task, TaskApprovalStatus, UpdateTaskPayload } from '../types'
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardDocumentListIcon } from './icons/Icons';
+import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardDocumentListIcon, CloudArrowDownIcon } from './icons/Icons';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -13,6 +13,7 @@ interface TasksViewProps {
   onAddTasksBulk: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => Promise<boolean>;
   onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
+  onSyncNotion?: () => Promise<{ created: number; error?: string }>;
   loggedInUser: Designer;
 }
 
@@ -83,7 +84,10 @@ const TaskTable: React.FC<{
 );
 
 
-const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, loggedInUser }) => {
+const NOTION_SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutos
+const NOTION_SYNC_STORAGE_KEY = 'playhits-last-notion-sync';
+
+const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, onSyncNotion, loggedInUser }) => {
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeDesigners = Array.isArray(designers) ? designers : [];
   const isDirector = loggedInUser?.role === 'Diretor de Arte';
@@ -126,6 +130,8 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const [filterDesigner, setFilterDesigner] = useState<string>(defaultFilterDesigner);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  const [isSyncingNotion, setIsSyncingNotion] = useState(false);
+  const [notionSyncMessage, setNotionSyncMessage] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -158,6 +164,39 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
       // Ignore storage write errors to prevent breaking the page.
     }
   }, [filtersStorageKey, filterDesigner, startDate, endDate]);
+
+  // Sincronização automática com Notion ao abrir a tela (respeitando cooldown de 5 min).
+  useEffect(() => {
+    if (!onSyncNotion || !isDirector) return;
+    try {
+      const last = sessionStorage.getItem(NOTION_SYNC_STORAGE_KEY);
+      const lastTs = last ? parseInt(last, 10) : 0;
+      if (Date.now() - lastTs < NOTION_SYNC_COOLDOWN_MS) return;
+      sessionStorage.setItem(NOTION_SYNC_STORAGE_KEY, String(Date.now()));
+      setIsSyncingNotion(true);
+      onSyncNotion().then(({ created, error }) => {
+        setIsSyncingNotion(false);
+        if (error) setNotionSyncMessage(null);
+        else if (created > 0) setNotionSyncMessage(`${created} demanda(s) importada(s) do Notion.`);
+      }).catch(() => setIsSyncingNotion(false));
+    } catch {
+      setIsSyncingNotion(false);
+    }
+  }, [isDirector]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao montar / quando vira diretor
+
+  const handleSyncNotion = async () => {
+    if (!onSyncNotion) return;
+    setIsSyncingNotion(true);
+    setNotionSyncMessage(null);
+    try {
+      const { created, error } = await onSyncNotion();
+      if (error) setNotionSyncMessage(null);
+      else setNotionSyncMessage(created > 0 ? `${created} demanda(s) importada(s) do Notion.` : 'Nenhuma demanda nova no Notion.');
+      try { sessionStorage.setItem(NOTION_SYNC_STORAGE_KEY, String(Date.now())); } catch { /* ignore */ }
+    } finally {
+      setIsSyncingNotion(false);
+    }
+  };
   
   const designerMap = useMemo(() => new Map(safeDesigners.map(d => [d.id, d.name])), [safeDesigners]);
 
@@ -355,7 +394,23 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             </p>
           </div>
           {isDirector && (
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
+              {onSyncNotion && (
+                <button
+                  type="button"
+                  onClick={handleSyncNotion}
+                  disabled={isSyncingNotion}
+                  className="flex items-center bg-base-300 text-base-content px-4 py-2.5 rounded-xl font-semibold hover:bg-base-content/10 transition-smooth border border-base-300"
+                  title="Puxar demandas do database do Notion"
+                >
+                  {isSyncingNotion ? (
+                    <span className="h-5 w-5 rounded-full border-2 border-base-content/30 border-t-current animate-spin" aria-hidden />
+                  ) : (
+                    <CloudArrowDownIcon />
+                  )}
+                  <span className="ml-2">{isSyncingNotion ? 'Sincronizando…' : 'Sincronizar com Notion'}</span>
+                </button>
+              )}
               <button 
                 onClick={openBulkModal} 
                 className="flex items-center bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-sm"
@@ -374,6 +429,13 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
           )}
         </div>
       </header>
+
+      {notionSyncMessage && (
+        <div className="bg-emerald-900/20 border border-emerald-500/40 text-emerald-200 p-3 rounded-xl flex items-center justify-between">
+          <span className="text-sm">{notionSyncMessage}</span>
+          <button type="button" onClick={() => setNotionSyncMessage(null)} className="text-emerald-300 hover:text-white ml-2" aria-label="Fechar">×</button>
+        </div>
+      )}
 
       {!isDirector && (
           <div className="bg-base-100/90 backdrop-blur-sm p-4 rounded-xl border border-base-300/40">

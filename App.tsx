@@ -349,6 +349,30 @@ const App: React.FC = () => {
     }
   };
 
+  /** Sincroniza demandas do Notion (Edge Function) e recarrega a lista de tasks. */
+  const syncNotion = async (): Promise<{ created: number; error?: string }> => {
+    setApiError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-notion');
+      if (error) {
+        const errMsg = error.message || 'Falha ao chamar a sincronização com o Notion.';
+        setApiError(errMsg);
+        return { created: 0, error: errMsg };
+      }
+      const created = typeof data?.created === 'number' ? data.created : 0;
+      const { data: tasksRes, error: fetchErr } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!fetchErr && Array.isArray(tasksRes)) setTasks(tasksRes);
+      return { created };
+    } catch (e: any) {
+      const errMsg = e?.message || 'Erro ao sincronizar com o Notion.';
+      setApiError(errMsg);
+      return { created: 0, error: errMsg };
+    }
+  };
+
   const deleteTask = async (taskId: string) => {
     setApiError(null);
 
@@ -511,7 +535,7 @@ const App: React.FC = () => {
         return <DashboardView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
       case 'tasks':
         if (isFinancial) return null;
-        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onAddTasksBulk={addTasksBulk} onUpdateTask={updateTask} onDeleteTask={deleteTask} loggedInUser={loggedInUser} />;
+        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onAddTasksBulk={addTasksBulk} onUpdateTask={updateTask} onDeleteTask={deleteTask} onSyncNotion={syncNotion} loggedInUser={loggedInUser} />;
       case 'reports':
         if (!isDirector && !isFinancial) return null;
         return <ReportsView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
