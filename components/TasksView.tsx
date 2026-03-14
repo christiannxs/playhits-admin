@@ -93,17 +93,9 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const isDirector = loggedInUser?.role === 'Diretor de Arte';
   const filtersStorageKey = `tasks-view-filters-${loggedInUser?.id ?? 'default'}`;
 
-  let defaultStartDate = '';
-  let defaultEndDate = '';
-  try {
-    const initialWeekRange = getWeekRange(new Date());
-    defaultStartDate = toLocalDateString(initialWeekRange.start);
-    defaultEndDate = toLocalDateString(initialWeekRange.end);
-  } catch {
-    const today = new Date();
-    defaultStartDate = today.toISOString().slice(0, 10);
-    defaultEndDate = today.toISOString().slice(0, 10);
-  }
+  // Sem filtro de data por padrão para exibir todas as demandas; usuário pode restringir por período depois.
+  const defaultStartDate = '';
+  const defaultEndDate = '';
 
   const defaultFilterDesigner = isDirector ? 'all' : (loggedInUser?.id ?? 'all');
   

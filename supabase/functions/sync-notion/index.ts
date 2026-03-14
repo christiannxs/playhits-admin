@@ -85,10 +85,12 @@ Deno.serve(async (req) => {
   for (const d of designers ?? []) {
     if (d?.name) nameToId.set(String(d.name).trim().toLowerCase(), d.id);
   }
+  const firstDesignerId = (designers ?? [])[0]?.id ?? null;
 
   let created = 0;
   let cursor: string | undefined;
   const seenPageIds = new Set<string>();
+  const today = new Date().toISOString().slice(0, 10);
 
   do {
     const body: { page_size?: number; start_cursor?: string } = { page_size: 100 };
@@ -126,11 +128,11 @@ Deno.serve(async (req) => {
       const social = getPropStr(props[propSocial]) || '-';
       const description = getPropStr(props[propDescription]) || '-';
 
-      const designerId = designerName ? (nameToId.get(designerName.toLowerCase()) ?? null) : null;
-      const dueDate = normalizeDueDate(dueRaw);
+      const designerId = (designerName ? nameToId.get(designerName.toLowerCase()) : null) ?? firstDesignerId;
+      const dueDate = normalizeDueDate(dueRaw) ?? today;
       const mediaType = resolveMediaType(mediaTypeRaw);
 
-      if (!designerId || !dueDate) continue;
+      if (!designerId) continue;
 
       const { data: existing } = await supabase.from('tasks').select('id').eq('notion_page_id', page.id).maybeSingle();
       if (existing) continue;
