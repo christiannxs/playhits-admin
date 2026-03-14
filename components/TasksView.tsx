@@ -3,7 +3,7 @@ import { Designer, Task, TaskApprovalStatus, UpdateTaskPayload } from '../types'
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, ClipboardDocumentListIcon, CloudArrowDownIcon } from './icons/Icons';
+import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, ClipboardDocumentListIcon } from './icons/Icons';
 import EmptyState from './EmptyState';
 
 const ARTISTAS_SELECIONAVEIS = [
@@ -25,6 +25,8 @@ interface NewDemandRow {
   tag: string;
   dataDemanda: string;
   quantidade: number;
+  /** Aprovada = valor integral; Reprovada = paga 30% do valor. */
+  approval_status: TaskApprovalStatus;
 }
 
 const initialNewDemandRow = (): NewDemandRow => ({
@@ -36,6 +38,7 @@ const initialNewDemandRow = (): NewDemandRow => ({
   tag: '',
   dataDemanda: new Date().toISOString().slice(0, 10),
   quantidade: 1,
+  approval_status: 'approved',
 });
 
 interface TasksViewProps {
@@ -45,7 +48,6 @@ interface TasksViewProps {
   onInsertTasks: (payloads: Array<Omit<Task, 'id' | 'created_at' | 'value'>>) => Promise<boolean>;
   onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
-  onSyncNotion?: () => Promise<{ created: number; error?: string }>;
   loggedInUser: Designer;
 }
 
@@ -116,10 +118,7 @@ const TaskTable: React.FC<{
 );
 
 
-const NOTION_SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutos
-const NOTION_SYNC_STORAGE_KEY = 'playhits-last-notion-sync';
-
-const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onInsertTasks, onUpdateTask, onDeleteTask, onSyncNotion, loggedInUser }) => {
+const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onInsertTasks, onUpdateTask, onDeleteTask, loggedInUser }) => {
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeDesigners = Array.isArray(designers) ? designers : [];
   const isDirector = loggedInUser?.role === 'Diretor de Arte';
@@ -151,8 +150,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
   
   const [filterDesigner, setFilterDesigner] = useState<string>(defaultFilterDesigner);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSyncingNotion, setIsSyncingNotion] = useState(false);
-  const [notionSyncMessage, setNotionSyncMessage] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -186,39 +183,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
     }
   }, [filtersStorageKey, filterDesigner, startDate, endDate]);
 
-  // Sincronização automática com Notion ao abrir a tela (respeitando cooldown de 5 min).
-  useEffect(() => {
-    if (!onSyncNotion || !isDirector) return;
-    try {
-      const last = sessionStorage.getItem(NOTION_SYNC_STORAGE_KEY);
-      const lastTs = last ? parseInt(last, 10) : 0;
-      if (Date.now() - lastTs < NOTION_SYNC_COOLDOWN_MS) return;
-      sessionStorage.setItem(NOTION_SYNC_STORAGE_KEY, String(Date.now()));
-      setIsSyncingNotion(true);
-      onSyncNotion().then(({ created, error }) => {
-        setIsSyncingNotion(false);
-        if (error) setNotionSyncMessage(null);
-        else if (created > 0) setNotionSyncMessage(`${created} demanda(s) importada(s) do Notion.`);
-      }).catch(() => setIsSyncingNotion(false));
-    } catch {
-      setIsSyncingNotion(false);
-    }
-  }, [isDirector]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao montar / quando vira diretor
-
-  const handleSyncNotion = async () => {
-    if (!onSyncNotion) return;
-    setIsSyncingNotion(true);
-    setNotionSyncMessage(null);
-    try {
-      const { created, error } = await onSyncNotion();
-      if (error) setNotionSyncMessage(null);
-      else setNotionSyncMessage(created > 0 ? `${created} demanda(s) importada(s) do Notion.` : 'Nenhuma demanda nova no Notion.');
-      try { sessionStorage.setItem(NOTION_SYNC_STORAGE_KEY, String(Date.now())); } catch { /* ignore */ }
-    } finally {
-      setIsSyncingNotion(false);
-    }
-  };
-  
   const designerMap = useMemo(() => new Map(safeDesigners.map(d => [d.id, d.name])), [safeDesigners]);
 
   const openAddModal = () => {
@@ -282,6 +246,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
         artist: row.artista || '-',
         social_media: '-',
         description,
+        approval_status: row.approval_status ?? 'approved',
       };
       for (let i = 0; i < row.quantidade; i++) payloads.push({ ...taskPayload });
     }
@@ -411,22 +376,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
           </div>
           {isDirector && (
             <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
-              {onSyncNotion && (
-                <button
-                  type="button"
-                  onClick={handleSyncNotion}
-                  disabled={isSyncingNotion}
-                  className="flex items-center bg-base-300 text-base-content px-4 py-2.5 rounded-xl font-semibold hover:bg-base-content/10 transition-smooth border border-base-300"
-                  title="Puxar demandas do database do Notion"
-                >
-                  {isSyncingNotion ? (
-                    <span className="h-5 w-5 rounded-full border-2 border-base-content/30 border-t-current animate-spin" aria-hidden />
-                  ) : (
-                    <CloudArrowDownIcon />
-                  )}
-                  <span className="ml-2">{isSyncingNotion ? 'Sincronizando…' : 'Sincronizar com Notion'}</span>
-                </button>
-              )}
               <button 
                 onClick={openAddModal} 
                 className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand"
@@ -438,13 +387,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
           )}
         </div>
       </header>
-
-      {notionSyncMessage && (
-        <div className="bg-emerald-900/20 border border-emerald-500/40 text-emerald-200 p-3 rounded-xl flex items-center justify-between">
-          <span className="text-sm">{notionSyncMessage}</span>
-          <button type="button" onClick={() => setNotionSyncMessage(null)} className="text-emerald-300 hover:text-white ml-2" aria-label="Fechar">×</button>
-        </div>
-      )}
 
       {!isDirector && (
           <div className="bg-base-100/90 backdrop-blur-sm p-4 rounded-xl border border-base-300/40">
@@ -522,7 +464,12 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingTask ? 'Editar Demanda' : 'Nova Demanda'}>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title={editingTask ? 'Editar Demanda' : 'Nova Demanda'}
+        contentClassName={!editingTask ? 'max-w-4xl' : undefined}
+      >
         {editingTask ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             {isDirector && (
@@ -652,6 +599,19 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                     className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
                   />
                 </div>
+                {isDirector && (
+                  <div>
+                    <label className="block text-xs font-medium text-base-content-secondary mb-1">Status</label>
+                    <select
+                      value={newDemandForm.approval_status ?? 'approved'}
+                      onChange={e => setNewDemandForm(f => ({ ...f, approval_status: e.target.value as TaskApprovalStatus }))}
+                      className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    >
+                      <option value="approved">Aprovada (valor integral)</option>
+                      <option value="rejected">Reprovada (paga 30%)</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -685,11 +645,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                         <th className="px-3 py-2 font-semibold text-base-content-secondary">Tag</th>
                         <th className="px-3 py-2 font-semibold text-base-content-secondary">Data</th>
                         <th className="px-3 py-2 font-semibold text-base-content-secondary">Qtd</th>
+                        {isDirector && <th className="px-3 py-2 font-semibold text-base-content-secondary">Status</th>}
                         <th className="px-3 py-2 w-10" aria-label="Remover" />
                       </tr>
                     </thead>
                     <tbody>
-                      {newDemandLines.map(row => (
+                      {newDemandLines.map(row => {
+                        const isRejected = (row.approval_status ?? 'approved') === 'rejected';
+                        return (
                         <tr key={row.id} className="border-b border-base-300/30 last:border-b-0">
                           <td className="px-3 py-2 text-base-content">{row.titulo}</td>
                           <td className="px-3 py-2 text-base-content-secondary">{row.artista || '—'}</td>
@@ -697,6 +660,13 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                           <td className="px-3 py-2 text-base-content-secondary">{row.tag || '—'}</td>
                           <td className="px-3 py-2 text-base-content-secondary">{row.dataDemanda ? new Date(row.dataDemanda + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
                           <td className="px-3 py-2 text-base-content-secondary">{row.quantidade}</td>
+                          {isDirector && (
+                            <td className="px-3 py-2">
+                              <span className={`text-xs font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
+                                {isRejected ? 'Reprovada (30%)' : 'Aprovada'}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-3 py-2">
                             <button
                               type="button"
@@ -708,7 +678,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );})}
                     </tbody>
                   </table>
                 </div>

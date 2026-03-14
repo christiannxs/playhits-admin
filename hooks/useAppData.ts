@@ -250,50 +250,6 @@ export function useAppData() {
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
   };
 
-  /** Sincroniza demandas do Notion (rota /api/sync-notion ou Edge Function) e recarrega a lista de tasks. */
-  const syncNotion = async (): Promise<{ created: number; error?: string }> => {
-    setApiError(null);
-    try {
-      const apiUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/sync-notion` : '';
-      let created = 0;
-      let usedApi = false;
-      if (apiUrl) {
-        try {
-          const res = await fetch(apiUrl, { method: 'POST' });
-          const json = await res.json().catch(() => ({}));
-          if (res.ok && typeof json.created === 'number') {
-            created = json.created;
-            usedApi = true;
-          } else if (!res.ok && json.error) {
-            setApiError(json.error);
-            return { created: 0, error: json.error };
-          }
-        } catch {
-          // fetch falhou (ex.: 404 em dev); tenta Edge Function
-        }
-      }
-      if (!usedApi) {
-        const { data, error } = await supabase.functions.invoke('sync-notion');
-        if (error) {
-          const errMsg = error.message || 'Falha ao chamar a sincronização com o Notion.';
-          setApiError(errMsg);
-          return { created: 0, error: errMsg };
-        }
-        created = typeof data?.created === 'number' ? data.created : 0;
-      }
-      const { data: tasksRes, error: fetchErr } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!fetchErr && Array.isArray(tasksRes)) setTasks(tasksRes);
-      return { created };
-    } catch (e: unknown) {
-      const errMsg = e instanceof Error ? e.message : 'Erro ao sincronizar com o Notion.';
-      setApiError(errMsg);
-      return { created: 0, error: errMsg };
-    }
-  };
-
   const addDesigner = async (designerData: Record<string, unknown>): Promise<{ success: boolean; message: string }> => {
     const FUNCTION_TIMEOUT = 20000;
     setApiError(null);
@@ -410,7 +366,6 @@ export function useAppData() {
     insertTasks,
     updateTask,
     deleteTask,
-    syncNotion,
     addDesigner,
     updateDesigner,
     deleteDesigner,

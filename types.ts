@@ -29,8 +29,6 @@ export interface Task {
   artist?: string;
   social_media?: string;
   description?: string;
-  /** ID da página no Notion (preenchido pela sincronização). */
-  notion_page_id?: string | null;
 }
 
 // Define um tipo específico para os dados que podem ser atualizados em uma tarefa.

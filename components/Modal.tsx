@@ -6,9 +6,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** Classe opcional para o container do conteúdo (ex.: max-w-4xl para formulários largos). */
+  contentClassName?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, contentClassName }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
     >
       <div
         ref={contentRef}
-        className="bg-base-100 rounded-3xl shadow-card-hover border border-base-300/40 w-full max-w-lg max-h-[90vh] flex flex-col animate-fade-in"
+        className={`bg-base-100 rounded-3xl shadow-card-hover border border-base-300/40 w-full max-h-[90vh] flex flex-col animate-fade-in ${contentClassName ?? 'max-w-lg'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center border-b border-base-300/40 px-6 py-4 flex-shrink-0">

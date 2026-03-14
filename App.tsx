@@ -37,7 +37,6 @@ const App: React.FC = () => {
     deleteDesigner,
     addAdvance,
     deleteAdvance,
-    syncNotion,
   } = useAppData();
 
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
@@ -80,7 +79,6 @@ const App: React.FC = () => {
             onInsertTasks={insertTasks}
             onUpdateTask={updateTask}
             onDeleteTask={deleteTask}
-            onSyncNotion={syncNotion}
             loggedInUser={loggedInUser}
           />
         );
