@@ -484,7 +484,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                   <ClockIcon className="h-5 w-5 text-brand-primary flex-shrink-0" />
                   {weekKey === 'sem-data'
                     ? 'Demandas sem data definida'
-                    : `Semana de ${formatDate(toLocalDateString(group.weekRange.start))} a ${formatDate(toLocalDateString(group.weekRange.end))}`}
+                    : `Semana (sáb–sex) ${formatDate(toLocalDateString(group.weekRange.start))} a ${formatDate(toLocalDateString(group.weekRange.end))}`}
                 </summary>
                 <TaskTable
                   tasks={group.tasks}

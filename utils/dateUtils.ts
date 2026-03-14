@@ -39,7 +39,19 @@ export const toLocalDateString = (date: Date): string => {
     }
 };
 
-// A semana de pagamento para freelancers é de Sábado a Sexta-feira.
+// Semana considerada no app: Sábado a Sexta-feira (pagamento freelancers, filtros, relatórios).
+const SATURDAY = 6;
+
+/** Soma dias a uma string YYYY-MM-DD e retorna YYYY-MM-DD. */
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00.000-03:00');
+  d.setUTCDate(d.getUTCDate() + days);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export const getWeekRange = (date: Date): { start: Date; end: Date } => {
   const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   try {
@@ -48,15 +60,15 @@ export const getWeekRange = (date: Date): { start: Date; end: Date } => {
     const dayIndex = WEEKDAY_INDEX[dayName] ?? 0;
 
     const todayStr = toLocalDateString(d);
-    const today = new Date(`${todayStr}T00:00:00.000-03:00`);
-    if (Number.isNaN(today.getTime())) return getWeekRangeFallback();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(todayStr)) return getWeekRangeFallback();
 
-    const daysUntilFriday = (5 - dayIndex + 7) % 7;
-    const end = new Date(today);
-    end.setUTCDate(today.getUTCDate() + daysUntilFriday);
-    const start = new Date(end);
-    start.setUTCDate(end.getUTCDate() - 6);
-    end.setUTCHours(23, 59, 59, 999);
+    // Na semana Sáb–Sex: quantos dias atrás está o Sábado que inicia esta semana?
+    const daysSinceSaturday = (dayIndex - SATURDAY + 7) % 7;
+    const startStr = addDays(todayStr, -daysSinceSaturday);
+    const endStr = addDays(startStr, 6);
+    const start = new Date(`${startStr}T00:00:00.000-03:00`);
+    const end = new Date(`${endStr}T23:59:59.999-03:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return getWeekRangeFallback();
 
     return { start, end };
   } catch {
@@ -67,13 +79,14 @@ export const getWeekRange = (date: Date): { start: Date; end: Date } => {
 function getWeekRangeFallback(): { start: Date; end: Date } {
   const now = new Date();
   const day = now.getDay();
-  const diffToFri = (5 - day + 7) % 7;
-  const end = new Date(now);
-  end.setDate(now.getDate() + diffToFri);
+  const daysSinceSaturday = (day - SATURDAY + 7) % 7;
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const start = new Date(y, m, d - daysSinceSaturday, 0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
   end.setHours(23, 59, 59, 999);
-  const start = new Date(end);
-  start.setDate(end.getDate() - 6);
-  start.setHours(0, 0, 0, 0);
   return { start, end };
 }
 

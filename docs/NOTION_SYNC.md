@@ -22,6 +22,7 @@ Crie um database no Notion (ou use um existente) com pelo menos estas colunas:
 
 - O valor **Designer** deve ser **exatamente** o nome do designer cadastrado no app (tabela `designers`). A função associa pelo nome para obter o `designer_id`.
 - **Tipo de mídia** deve coincidir com os tipos do app (Motion, Teaser, Flyer, Catálogo/Carrossel, Outros, Criação de ID, Ônibus, Plantão Final de Semana). Se não bater, a demanda é importada como "Outros".
+- **Valores (pagamento):** no Notion não existem valores por demanda. Na sincronização, o app atribui o valor de cada demanda pelo **tipo de mídia** (tabela de preços no app). Para pagar por designer de acordo com as demandas, use em **Relatórios** a seção **"Pagamento por designer"**: escolha o período, veja as demandas separadas por designer com valor de cada uma e o total a pagar; use **"Copiar relatório"** para levar os valores ao pagamento.
 
 ## 2. Integração do Notion
 
@@ -73,6 +74,21 @@ Sem Docker nem Supabase CLI. O projeto já inclui a rota **`api/sync-notion.ts`*
    - Abra o app na URL da Vercel → **Demandas** → **Sincronizar com Notion**.
 
 O app chama primeiro `/api/sync-notion` (mesma origem). Se estiver no ar na Vercel com as env vars certas, a sincronização funciona sem Edge Function.
+
+---
+
+## Desenvolvimento local (localhost)
+
+No **localhost** o Vite não expõe a rota `/api/sync-notion` (essa rota existe só no deploy na Vercel). O app tenta essa rota primeiro; se falhar, tenta chamar a Edge Function direto do navegador — e isso pode gerar o erro *"Failed to send a request to the Edge Function"* (CORS/rede).
+
+Para o **"Sincronizar com Notion"** funcionar em desenvolvimento local, o Vite está configurado para fazer **proxy** de `POST /api/sync-notion` para a Edge Function do Supabase. Basta ter no seu `.env` (na raiz do projeto):
+
+| Variável | Descrição |
+|----------|-----------|
+| `SUPABASE_URL` | URL do projeto (ex.: `https://kkoeclshogsufckkpqjj.supabase.co`) |
+| `SUPABASE_ANON_KEY` | Chave **anon/public** do Supabase (Project Settings → API) |
+
+Assim, ao clicar em "Sincronizar com Notion" no localhost, o request vai para o servidor do Vite e é repassado à Edge Function, evitando o erro. Reinicie o `npm run dev` depois de criar ou alterar o `.env`.
 
 ---
 

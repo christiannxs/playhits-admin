@@ -13,6 +13,14 @@ interface ReportsViewProps {
 
 const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, loggedInUser }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentReportStart, setPaymentReportStart] = useState(() => {
+    const w = getWeekRange(new Date());
+    return w.start.toISOString().slice(0, 10);
+  });
+  const [paymentReportEnd, setPaymentReportEnd] = useState(() => {
+    const w = getWeekRange(new Date());
+    return w.end.toISOString().slice(0, 10);
+  });
 
   const date = useMemo(() => new Date(`${selectedDate}T12:00:00-03:00`), [selectedDate]);
   const weekRange = useMemo(() => getWeekRange(date), [date]);
@@ -20,6 +28,41 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
 
   const fixedDesigners = designers.filter(d => d.type === DesignerType.Fixed);
   const freelancers = designers.filter(d => d.type !== DesignerType.Fixed);
+
+  // Período customizado para o relatório "Pagamento por designer"
+  const paymentPeriod = useMemo(() => {
+    const start = new Date(paymentReportStart + 'T00:00:00');
+    const end = new Date(paymentReportEnd + 'T23:59:59');
+    return { start, end };
+  }, [paymentReportStart, paymentReportEnd]);
+
+  // Relatório de pagamento por designer: demandas no período com valor (para pagar de acordo com as demandas)
+  const paymentByDesignerReport = useMemo(() => {
+    const { start, end } = paymentPeriod;
+    return designers.map(designer => {
+      const periodTasks = tasks.filter(t =>
+        t.designer_id === designer.id && isTaskInPeriod(t, start, end)
+      );
+      const taskTotal = periodTasks.reduce((sum, t) => sum + getTaskPayableValue(t), 0);
+      const advancesInPeriod = advances.filter(a =>
+        a.designer_id === designer.id &&
+        new Date(a.date) >= start &&
+        new Date(a.date) <= end
+      );
+      const advancesTotal = advancesInPeriod.reduce((sum, a) => sum + a.amount, 0);
+      const isFreelancer = designer.type !== DesignerType.Fixed;
+      const totalToPay = isFreelancer ? taskTotal - advancesTotal : (designer.salary ?? 0) - advancesTotal;
+      return {
+        designer,
+        periodTasks,
+        taskTotal,
+        advancesInPeriod,
+        advancesTotal,
+        totalToPay,
+        isFreelancer,
+      };
+    }).filter(r => r.periodTasks.length > 0 || r.advancesInPeriod.length > 0);
+  }, [designers, tasks, advances, paymentPeriod]);
 
   // Controle financeiro histórico: apenas freelancers, valores desde o início do sistema (sem filtro de período)
   const financialControlAllTime = useMemo(() => {
@@ -172,6 +215,31 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
       });
   };
 
+  const handleCopyPaymentByDesigner = () => {
+    const startStr = formatDate(paymentPeriod.start.toISOString());
+    const endStr = formatDate(paymentPeriod.end.toISOString());
+    let text = `PAGAMENTO POR DESIGNER\n`;
+    text += `Período: ${startStr} a ${endStr}\n`;
+    text += `(Valores das demandas vêm do tipo de mídia; no Notion não há valores.)\n`;
+    text += '====================\n\n';
+    paymentByDesignerReport.forEach(({ designer, periodTasks, taskTotal, advancesTotal, totalToPay, isFreelancer }) => {
+      text += `${designer.name}${isFreelancer ? ' (Freelancer)' : ' (Fixo)'}\n`;
+      periodTasks.forEach(task => {
+        text += `  ${task.media_type} | ${formatDate(String(task.due_date))} | ${formatCurrency(getTaskPayableValue(task))}\n`;
+      });
+      if (advancesTotal > 0) {
+        text += `  Adiantamentos: -${formatCurrency(advancesTotal)}\n`;
+      }
+      text += `  ---\n  Total a pagar: ${formatCurrency(totalToPay)}\n\n`;
+    });
+    if (paymentByDesignerReport.length === 0) {
+      text += 'Nenhuma demanda ou adiantamento no período.\n';
+    }
+    navigator.clipboard.writeText(text.trim())
+      .then(() => alert('Relatório "Pagamento por designer" copiado!'))
+      .catch(() => alert('Erro ao copiar. Verifique as permissões do navegador.'));
+  };
+
   return (
     <div className="space-y-8">
       <header className="pb-2 border-b border-base-300/40 no-print">
@@ -244,6 +312,87 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
             </div>
           </div>
         </div>
+
+        {/* Pagamento por designer — demandas separadas por designer para pagar (valores vêm do app, não do Notion) */}
+        <div className="bg-base-100/95 rounded-2xl border border-base-300/40 overflow-hidden shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border-b border-base-300 bg-base-200/60">
+            <div className="flex items-center gap-2">
+              <div className="bg-amber-500/20 p-2 rounded-full">
+                <CashIcon className="text-amber-400 h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-base-content">Pagamento por designer</h3>
+                <p className="text-xs text-base-content-secondary">Demandas do período separadas por designer; valores pelo tipo de mídia (não vêm do Notion)</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="date"
+                value={paymentReportStart}
+                onChange={e => setPaymentReportStart(e.target.value)}
+                className="py-2 px-3 rounded-xl bg-base-100 border border-base-300 text-base-content text-sm"
+              />
+              <span className="text-base-content-secondary">até</span>
+              <input
+                type="date"
+                value={paymentReportEnd}
+                onChange={e => setPaymentReportEnd(e.target.value)}
+                className="py-2 px-3 rounded-xl bg-base-100 border border-base-300 text-base-content text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleCopyPaymentByDesigner}
+                className="flex items-center bg-brand-primary text-white px-4 py-2 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand"
+              >
+                <ClipboardCopyIcon />
+                <span className="ml-2">Copiar relatório</span>
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-base-300">
+                  <th className="text-left font-bold text-base-content p-3">Designer</th>
+                  <th className="text-left font-bold text-base-content p-3">Demandas (tipo · valor)</th>
+                  <th className="text-right font-bold text-base-content p-3">Produção</th>
+                  <th className="text-right font-bold text-base-content p-3">Adiantamentos</th>
+                  <th className="text-right font-bold text-base-content p-3">Total a pagar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentByDesignerReport.length > 0 ? (
+                  paymentByDesignerReport.map(({ designer, periodTasks, taskTotal, advancesTotal, totalToPay, isFreelancer }) => (
+                    <tr key={designer.id} className="border-b border-base-300/40 hover:bg-base-200/30 transition-smooth">
+                      <td className="p-3">
+                        <span className="font-medium text-base-content">{designer.name}</span>
+                        <span className="text-xs text-base-content-secondary ml-1">{isFreelancer ? '(Freelancer)' : '(Fixo)'}</span>
+                      </td>
+                      <td className="p-3 text-sm text-base-content-secondary">
+                        <div className="flex flex-col gap-0.5">
+                          {periodTasks.map(task => (
+                            <span key={task.id}>
+                              {task.media_type} · {formatCurrency(getTaskPayableValue(task))}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-3 text-right font-medium text-base-content">{formatCurrency(taskTotal)}</td>
+                      <td className="p-3 text-right text-red-400">-{formatCurrency(advancesTotal)}</td>
+                      <td className="p-3 text-right font-bold text-brand-primary">{formatCurrency(totalToPay)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-base-content-secondary">
+                      Nenhuma demanda ou adiantamento no período selecionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
         
         {/* Freelancer Section */}
         <div>
@@ -253,7 +402,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ designers, tasks, advances, l
                 </div>
                 <div>
                      <h3 className="text-xl font-bold text-base-content">Freelancers (Semanal)</h3>
-                     <p className="text-xs text-base-content-secondary">{formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
+                     <p className="text-xs text-base-content-secondary">Semana sábado a sexta: {formatDate(weekRange.start.toISOString())} a {formatDate(weekRange.end.toISOString())}</p>
                 </div>
             </div>
 

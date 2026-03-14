@@ -178,7 +178,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
             }}
             className="px-4 py-2.5 rounded-xl bg-base-100 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
           >
-                  <option value="week">Semana</option>
+                  <option value="week">Semana (sáb a sex)</option>
                   <option value="month">Mês</option>
                   <option value="year">Ano</option>
                   <option value="custom">Personalizado</option>
