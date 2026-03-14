@@ -1,540 +1,47 @@
-
-
 import React, { useState, useEffect } from 'react';
-import { Designer, Task, ViewType, Advance, UpdateTaskPayload } from './types';
-import { MEDIA_PRICES } from './constants';
+import { ViewType, Designer } from './types';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
 import TasksView from './components/TasksView';
 import ReportsView from './components/ReportsView';
+import FinancialControlView from './components/FinancialControlView';
 import DesignersView from './components/DesignersView';
 import LoginView from './components/LoginView';
+import ConfigurationErrorView from './components/ConfigurationErrorView';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
-import { supabase, configurationError } from './lib/supabaseClient';
-import { FunctionsHttpError } from '@supabase/supabase-js';
-
-const ConfigurationErrorView: React.FC<{ message: string }> = ({ message }) => (
-  <div className="min-h-screen flex flex-col bg-base-200">
-    <main className="flex-1 flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl p-8 sm:p-10 space-y-6 bg-base-100 rounded-3xl shadow-card border border-base-300/40">
-        <div className="flex flex-col items-center space-y-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-center text-red-400">
-            Configuração Incompleta
-          </h1>
-          <p className="text-base-content-secondary text-center text-sm">
-            O aplicativo não pode se conectar ao banco de dados porque as credenciais do Supabase não foram fornecidas.
-          </p>
-          <div className="w-full p-4 bg-base-200 rounded-xl text-base-content text-center font-mono text-sm border border-base-300/40">
-            {message}
-          </div>
-          <p className="text-sm text-base-content-secondary text-center pt-2">
-            Siga as instruções em <strong>lib/supabaseClient.ts</strong> para adicionar a URL e a Chave Pública (anon). O app será recarregado automaticamente após salvar.
-          </p>
-        </div>
-      </div>
-    </main>
-    <footer className="bg-base-100 border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
-      aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
-    </footer>
-  </div>
-);
-
+import { configurationError, supabase } from './lib/supabaseClient';
+import { useAppData } from './hooks/useAppData';
 
 const App: React.FC = () => {
   if (configurationError || !supabase) {
-    return <ConfigurationErrorView message={configurationError || "Cliente Supabase não inicializado."} />;
+    return <ConfigurationErrorView message={configurationError ?? 'Cliente Supabase não inicializado.'} />;
   }
-  
+
+  const {
+    designers,
+    tasks,
+    advances,
+    loggedInUser,
+    loading,
+    loginProfileError,
+    apiError,
+    setApiError,
+    handleLogin,
+    handleLogout,
+    addTask,
+    insertTasks,
+    updateTask,
+    deleteTask,
+    addDesigner,
+    updateDesigner,
+    deleteDesigner,
+    addAdvance,
+    deleteAdvance,
+    syncNotion,
+  } = useAppData();
+
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
-  const [designers, setDesigners] = useState<Designer[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [advances, setAdvances] = useState<Advance[]>([]);
-  const [loggedInUser, setLoggedInUser] = useState<Designer | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loginProfileError, setLoginProfileError] = useState('');
-  const [apiError, setApiError] = useState<string | null>(null);
 
-  // Lógica de inicialização.
-  useEffect(() => {
-    const loadSessionAndData = async () => {
-      setLoading(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session) {
-          // Garantir token válido antes de buscar dados (evita 401/RLS por token expirado)
-          const { error: refreshErr } = await supabase.auth.refreshSession();
-          if (refreshErr && process.env.NODE_ENV !== 'production') {
-            console.warn('[Playhits] refreshSession:', refreshErr.message);
-          }
-
-          const { data: { user }, error: authError } = await supabase.auth.getUser();
-          if (authError || !user) {
-            await supabase.auth.signOut();
-            setLoggedInUser(null);
-            return;
-          }
-
-          const { data: userProfile, error: profileError } = await supabase
-            .from('designers')
-            .select('*')
-            .eq('auth_user_id', user.id)
-            .single();
-          
-          if (profileError || !userProfile) {
-            setLoginProfileError('Seu perfil não foi encontrado. A sessão será encerrada.');
-            await supabase.auth.signOut();
-            setLoggedInUser(null);
-            return;
-          }
-
-          setLoggedInUser(userProfile);
-          setLoginProfileError('');
-          
-          const [designersRes, tasksRes, advancesRes] = await Promise.all([
-            supabase.from('designers').select('*'),
-            supabase.from('tasks').select('*').order('created_at', { ascending: false }),
-            supabase.from('advances').select('*'),
-          ]);
-
-          if (designersRes.error) throw designersRes.error;
-          if (tasksRes.error) throw tasksRes.error;
-          if (advancesRes.error) throw advancesRes.error;
-
-          const tasksData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
-          setDesigners(designersRes.data ?? []);
-          setTasks(tasksData);
-          setAdvances(advancesRes.data ?? []);
-
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('[Playhits] Carregamento:', { tasksCount: tasksData.length, userId: user?.id, tasksError: tasksRes.error?.message });
-          }
-
-        } else {
-          setLoggedInUser(null);
-          setDesigners([]);
-          setTasks([]);
-          setAdvances([]);
-        }
-      } catch (error: any) {
-        console.error("Erro crítico durante o carregamento da sessão:", error);
-        
-        let errorMessage = error.message || 'Erro desconhecido';
-        if (errorMessage === 'Failed to fetch') {
-            errorMessage = 'Falha na conexão com o servidor. Verifique sua internet.';
-        }
-
-        setLoginProfileError(`Erro ao carregar dados: ${errorMessage}`);
-        await supabase.auth.signOut();
-        setLoggedInUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSessionAndData();
-
-    // Só recarregar dados em login/logout; evita TOKEN_REFRESHED sobrescrever com resultado vazio
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        loadSessionAndData();
-      }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
-  
-
-  const handleLogin = async (username: string, pass: string): Promise<{ success: boolean; message: string }> => {
-    setLoginProfileError('');
-    const email = `${username.toLowerCase()}@playhits.local`;
-    
-    try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-        if (error) {
-            console.error('Erro no login:', error);
-            if (error.message && error.message.includes('Failed to fetch')) {
-                 return { success: false, message: 'Erro de conexão com o servidor. Verifique sua internet.' };
-            }
-            return { success: false, message: 'Usuário ou senha inválidos.' };
-        }
-        return { success: true, message: '' };
-    } catch (err: any) {
-         console.error('Exceção no login:', err);
-         if (err.message === 'Failed to fetch') {
-             return { success: false, message: 'Erro de conexão com o servidor.' };
-         }
-        return { success: false, message: 'Ocorreu um erro inesperado ao tentar entrar.' };
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setLoggedInUser(null);
-  };
-
-  /** Normaliza due_date para YYYY-MM-DD (evita problema com timezone ou input quebrado). */
-  const normalizeDueDate = (raw: string | undefined): string | null => {
-    if (raw == null || typeof raw !== 'string') return null;
-    const trimmed = raw.trim().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
-    return trimmed;
-  };
-
-  const addTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>): Promise<boolean> => {
-    setApiError(null);
-    try {
-      const designerId = (taskData.designer_id ?? '').trim();
-      const mediaType = (taskData.media_type ?? '').trim();
-      const dueDate = normalizeDueDate(taskData.due_date);
-      if (!designerId || !mediaType || !dueDate) {
-        setApiError('Preencha designer, tipo de mídia e data de entrega (formato YYYY-MM-DD).');
-        return false;
-      }
-      const value = MEDIA_PRICES[mediaType]?.price ?? 0;
-      const approvalStatus = taskData.approval_status === 'rejected' ? 'rejected' : 'approved';
-      const payload = {
-        designer_id: designerId,
-        media_type: mediaType,
-        due_date: dueDate,
-        artist: (taskData.artist ?? '-').trim() || '-',
-        social_media: (taskData.social_media ?? '-').trim() || '-',
-        description: (taskData.description ?? '-').trim() || '-',
-        value,
-        approval_status: approvalStatus,
-      };
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[Playhits] addTask payload:', payload);
-      }
-      const { data, error } = await supabase.from('tasks').insert(payload).select().single();
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[Playhits] addTask inserido:', { id: data.id, due_date: data.due_date, created_at: data.created_at });
-        }
-        setTasks(prev => [data, ...prev]);
-        // Verifica se a demanda fica visível no SELECT (evita surpresa após F5 por RLS)
-        const { data: check } = await supabase.from('tasks').select('id').eq('id', data.id).maybeSingle();
-        if (!check) {
-          setApiError(
-            'Demanda foi criada, mas não está visível na leitura. Ao atualizar a página ela pode sumir. ' +
-            'Ajuste as políticas RLS da tabela "tasks" no Supabase para permitir SELECT das demandas. ' +
-            'Veja supabase/RLS_TASKS.md no projeto.'
-          );
-        }
-      }
-      return true;
-    } catch (error: any) {
-      console.error('Erro detalhado ao adicionar demanda:', error);
-      let errorMessage = 'Ocorreu um erro inesperado.';
-      if (error && typeof error === 'object' && 'message' in error) {
-        const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-        errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
-      } else {
-        try {
-          errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
-        } catch {
-          errorMessage = `Ocorreu um erro não-JSON: ${error}`;
-        }
-      }
-      setApiError(`Falha ao adicionar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
-      return false;
-    }
-  };
-
-  const addTasksBulk = async (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number): Promise<boolean> => {
-    setApiError(null);
-    try {
-      const designerId = (taskData.designer_id ?? '').trim();
-      const mediaType = (taskData.media_type ?? '').trim();
-      const dueDate = normalizeDueDate(taskData.due_date);
-      if (!designerId || !mediaType || !dueDate || quantity < 1) {
-        setApiError('Preencha designer, tipo de mídia e data de entrega (formato YYYY-MM-DD) e quantidade.');
-        return false;
-      }
-      const value = MEDIA_PRICES[mediaType]?.price ?? 0;
-      const row = {
-        designer_id: designerId,
-        media_type: mediaType,
-        due_date: dueDate,
-        artist: (taskData.artist ?? '-').trim() || '-',
-        social_media: (taskData.social_media ?? '-').trim() || '-',
-        description: (taskData.description ?? '-').trim() || '-',
-        value,
-        approval_status: 'approved' as const,
-      };
-      const tasksToInsert = Array(quantity).fill(null).map(() => ({ ...row }));
-
-      const { data, error } = await supabase.from('tasks').insert(tasksToInsert).select();
-
-      if (error) {
-        console.error('Erro ao inserir demandas em massa:', error);
-        throw error;
-      }
-
-      if (data && data.length > 0) {
-        setTasks(prev => [...data, ...prev]);
-        const firstId = data[0]?.id;
-        if (firstId) {
-          const { data: check } = await supabase.from('tasks').select('id').eq('id', firstId).maybeSingle();
-          if (!check) {
-            setApiError(
-              'Demandas foram criadas, mas não estão visíveis na leitura. Ao atualizar a página podem sumir. ' +
-              'Ajuste as políticas RLS da tabela "tasks" no Supabase. Veja supabase/RLS_TASKS.md no projeto.'
-            );
-          }
-        }
-      } else {
-        const { data: refreshedTasks, error: refreshError } = await supabase.from('tasks').select('*');
-        if (!refreshError && refreshedTasks) {
-          setTasks(refreshedTasks);
-        }
-      }
-      return true;
-    } catch (error: any) {
-      console.error('Erro detalhado ao adicionar demandas em massa:', error);
-      let errorMessage = 'Ocorreu um erro inesperado.';
-      if (error && typeof error === 'object' && 'message' in error) {
-        const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-        errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
-      } else {
-        try {
-          errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
-        } catch {
-          errorMessage = `Ocorreu um erro não-JSON: ${error}`;
-        }
-      }
-      setApiError(`Falha ao adicionar demandas em massa.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura e as permissões da sua tabela 'tasks' no Supabase correspondem ao que o aplicativo espera.`);
-      return false;
-    }
-  };
-
-  const updateTask = async (taskId: string, updateData: UpdateTaskPayload) => {
-    setApiError(null);
-    try {
-        const payload = { ...updateData };
-        if (payload.media_type) {
-            payload.value = MEDIA_PRICES[payload.media_type]?.price || 0;
-        }
-
-        const { data, error } = await supabase.from('tasks').update(payload).eq('id', taskId).select().single();
-        
-        if (error) {
-            throw error;
-        }
-
-        if (data) {
-            setTasks(prev => prev.map(task => task.id === data.id ? data : task));
-        }
-    } catch (error: any) {
-        console.error('Erro detalhado ao atualizar demanda:', error);
-        let errorMessage = 'Ocorreu um erro inesperado.';
-        if (error && typeof error === 'object' && 'message' in error) {
-            const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-            errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}\n- Dica: ${dbError.hint || 'N/A'}`;
-        } else {
-             try {
-                errorMessage = `Ocorreu um erro não-padrão:\n${JSON.stringify(error, null, 2)}`;
-              } catch {
-                errorMessage = `Ocorreu um erro não-JSON: ${error}`;
-              }
-        }
-        setApiError(`Falha ao atualizar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique se a estrutura da tabela 'tasks' no Supabase corresponde ao que o aplicativo espera.`);
-    }
-  };
-
-  /** Sincroniza demandas do Notion (rota /api/sync-notion ou Edge Function) e recarrega a lista de tasks. */
-  const syncNotion = async (): Promise<{ created: number; error?: string }> => {
-    setApiError(null);
-    try {
-      // 1) Tenta a rota de API (deploy manual na Vercel/etc.)
-      const apiUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/sync-notion` : '';
-      let created = 0;
-      let usedApi = false;
-      if (apiUrl) {
-        try {
-          const res = await fetch(apiUrl, { method: 'POST' });
-          const json = await res.json().catch(() => ({}));
-          if (res.ok && typeof json.created === 'number') {
-            created = json.created;
-            usedApi = true;
-          } else if (!res.ok && json.error) {
-            setApiError(json.error);
-            return { created: 0, error: json.error };
-          }
-        } catch (_) {
-          // fetch falhou (ex.: 404 em dev); tenta Edge Function
-        }
-      }
-      // 2) Se não usou a API, tenta Edge Function do Supabase
-      if (!usedApi) {
-        const { data, error } = await supabase.functions.invoke('sync-notion');
-        if (error) {
-          const errMsg = error.message || 'Falha ao chamar a sincronização com o Notion.';
-          setApiError(errMsg);
-          return { created: 0, error: errMsg };
-        }
-        created = typeof data?.created === 'number' ? data.created : 0;
-      }
-      const { data: tasksRes, error: fetchErr } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!fetchErr && Array.isArray(tasksRes)) setTasks(tasksRes);
-      return { created };
-    } catch (e: any) {
-      const errMsg = e?.message || 'Erro ao sincronizar com o Notion.';
-      setApiError(errMsg);
-      return { created: 0, error: errMsg };
-    }
-  };
-
-  const deleteTask = async (taskId: string) => {
-    setApiError(null);
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId)
-      .select();
-
-    if (error) {
-      console.error('Erro detalhado ao deletar demanda:', error);
-      const dbError = error as { message: string; details?: string; hint?: string; code?: string };
-      const errorMessage = `Erro do Banco de Dados (Código: ${dbError.code || 'N/A'}):\n- Mensagem: ${dbError.message}\n- Detalhes: ${dbError.details || 'N/A'}`;
-      setApiError(`Falha ao deletar demanda.\n\n${errorMessage}\n\n---\n\n**Ação Recomendada:**\nVerifique as políticas de segurança (Row Level Security) da sua tabela 'tasks' no Supabase. Certifique-se de que a role do seu usuário ('Diretor de Arte') tem permissão para a operação 'DELETE'.`);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      console.error('Nenhuma demanda foi deletada. Provável falha de RLS.');
-      setApiError(`A operação de exclusão falhou.\n\nNenhuma demanda foi removida, o que geralmente indica um problema de permissão.\n\n---\n\n**Ação Recomendada:**\nVerifique se a política de segurança (Row Level Security) para 'DELETE' na tabela 'tasks' está corretamente configurada no Supabase para permitir que a sua função ('Diretor de Arte') execute esta ação.`);
-      return;
-    }
-
-    setTasks(prev => prev.filter(task => task.id !== taskId));
-  };
-
-  const addDesigner = async (designerData: any): Promise<{ success: boolean; message: string }> => {
-    const FUNCTION_TIMEOUT = 20000;
-    setApiError(null);
-
-    try {
-        const functionPromise = supabase.functions.invoke('create-user-and-profile', {
-            body: designerData,
-        });
-
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('A operação demou muito para responder. Verifique sua conexão ou o status do servidor (Edge Function).')), FUNCTION_TIMEOUT)
-        );
-
-        const result: { data: any; error: any } = await Promise.race([functionPromise, timeoutPromise as any]);
-        
-        const { data, error } = result;
-
-        if (error) {
-            console.error('Erro ao chamar a Edge Function:', error);
-            
-            if (error instanceof FunctionsHttpError) {
-                try {
-                    const errorJson = await error.context.json();
-                    let detailedMessage = errorJson.details || errorJson.error || 'Erro desconhecido retornado pela função.';
-                    
-                    if (typeof detailedMessage === 'string') {
-                        if (detailedMessage.includes('A user with this email address has already been registered')) {
-                            detailedMessage = 'Já existe um usuário cadastrado com este e-mail.';
-                        } else if (detailedMessage.includes('duplicate key value violates unique constraint "designers_username_key"')) {
-                            detailedMessage = 'Este nome de usuário já está em uso.';
-                        }
-                    }
-                    return { success: false, message: `Erro do servidor: ${detailedMessage}` };
-
-                } catch (e) {
-                    const textError = await error.context.text();
-                    return { success: false, message: `Erro do servidor (status ${error.context.status}): ${textError}` };
-                }
-            }
-             // Captura genérica de erro de fetch na function
-            if (error.message === 'Failed to fetch') {
-                 return { success: false, message: 'Erro de conexão: Não foi possível contatar o servidor (Edge Function). Verifique se a função está implantada e acessível.' };
-            }
-
-            return { success: false, message: `Erro de comunicação: ${error.message}` };
-        }
-        
-        if (data.error) {
-            console.error('Erro na criação do designer (payload):', data.error);
-            return { success: false, message: data.details || data.error };
-        }
-
-        setDesigners(prev => [data, ...prev].sort((a,b) => a.name.localeCompare(b.name)));
-        return { success: true, message: 'Designer criado com sucesso!' };
-
-    } catch (e: any) {
-        console.error('Erro inesperado (possivelmente timeout) ao adicionar designer:', e);
-         if (e.message === 'Failed to fetch') {
-             return { success: false, message: 'Erro de conexão: Não foi possível contatar o servidor.' };
-         }
-        return { success: false, message: e.message || 'Ocorreu um erro inesperado.' };
-    }
-  };
-
-  const updateDesigner = async (updatedDesigner: Designer) => {
-    setApiError(null);
-    const { data, error } = await supabase.from('designers').update(updatedDesigner).eq('id', updatedDesigner.id).select().single();
-    if (error) {
-        console.error('Erro ao atualizar designer:', error);
-        setApiError(`Falha ao atualizar designer: ${error.message}`);
-    }
-    else if (data) setDesigners(prev => prev.map(d => d.id === data.id ? data : d));
-  };
-  
-  const deleteDesigner = async (designerId: string) => {
-    if (window.confirm('Tem certeza que deseja remover este designer? Isso removerá o acesso do usuário e todos os dados associados do painel.')) {
-        setApiError(null);
-        try {
-            const { error } = await supabase.from('designers').delete().eq('id', designerId);
-            if (error) {
-                console.error('Erro ao remover designer:', error);
-                setApiError(`Falha ao remover designer: ${error.message}. Talvez existam demandas associadas que impedem a exclusão.`);
-            } else {
-                setDesigners(prev => prev.filter(d => d.id !== designerId));
-            }
-        } catch (error: any) {
-             setApiError(`Erro inesperado ao remover designer: ${error.message}`);
-        }
-    }
-  };
-
-  const addAdvance = async (advanceData: Omit<Advance, 'id'>) => {
-    setApiError(null);
-    const { data, error } = await supabase.from('advances').insert(advanceData).select().single();
-    if (error) {
-        console.error('Erro ao adicionar adiantamento:', error);
-        setApiError(`Falha ao adicionar adiantamento: ${error.message}`);
-    }
-    else if(data) setAdvances(prev => [data, ...prev]);
-  };
-
-  const deleteAdvance = async (advanceId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este adiantamento?')) {
-      setApiError(null);
-      const { error } = await supabase.from('advances').delete().eq('id', advanceId);
-      if (error) {
-        console.error('Erro ao deletar adiantamento:', error);
-        setApiError(`Falha ao deletar adiantamento: ${error.message}`);
-      }
-      else setAdvances(prev => prev.filter(adv => adv.id !== advanceId));
-    }
-  };
-
-  // Redireciona para dashboard quando o usuário não tem permissão para a view atual (evita setState durante render).
   useEffect(() => {
     if (!loggedInUser) return;
     const isDirector = loggedInUser.role === 'Diretor de Arte';
@@ -542,6 +49,7 @@ const App: React.FC = () => {
     const allowed =
       activeView === 'dashboard' ||
       (activeView === 'tasks' && !isFinancial) ||
+      (activeView === 'financial-control' && (isDirector || isFinancial)) ||
       (activeView === 'reports' && (isDirector || isFinancial)) ||
       (activeView === 'designers' && isDirector);
     if (!allowed) setActiveView('dashboard');
@@ -554,34 +62,73 @@ const App: React.FC = () => {
 
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
+        return (
+          <DashboardView
+            designers={designers}
+            tasks={tasks}
+            advances={advances}
+            loggedInUser={loggedInUser}
+          />
+        );
       case 'tasks':
         if (isFinancial) return null;
-        return <TasksView tasks={tasks} designers={designers} onAddTask={addTask} onAddTasksBulk={addTasksBulk} onUpdateTask={updateTask} onDeleteTask={deleteTask} onSyncNotion={syncNotion} loggedInUser={loggedInUser} />;
+        return (
+          <TasksView
+            tasks={tasks}
+            designers={designers}
+            onAddTask={addTask}
+            onInsertTasks={insertTasks}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
+            onSyncNotion={syncNotion}
+            loggedInUser={loggedInUser}
+          />
+        );
+      case 'financial-control':
+        if (!isDirector && !isFinancial) return null;
+        return (
+          <FinancialControlView
+            designers={designers}
+            tasks={tasks}
+            advances={advances}
+          />
+        );
       case 'reports':
         if (!isDirector && !isFinancial) return null;
-        return <ReportsView designers={designers} tasks={tasks} advances={advances} loggedInUser={loggedInUser} />;
+        return (
+          <ReportsView
+            designers={designers}
+            tasks={tasks}
+            advances={advances}
+            loggedInUser={loggedInUser}
+          />
+        );
       case 'designers':
         if (!isDirector) return null;
-        return <DesignersView 
-            designers={designers} 
-            tasks={tasks} 
-            onAddDesigner={addDesigner} 
-            onUpdateDesigner={updateDesigner} 
+        return (
+          <DesignersView
+            designers={designers}
+            tasks={tasks}
+            onAddDesigner={addDesigner}
+            onUpdateDesigner={updateDesigner}
             onDeleteDesigner={deleteDesigner}
-            advances={advances} 
-            onAddAdvance={addAdvance} 
-            onDeleteAdvance={deleteAdvance} 
-        />;
+            advances={advances}
+            onAddAdvance={addAdvance}
+            onDeleteAdvance={deleteAdvance}
+          />
+        );
       default:
         return null;
     }
   };
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 gap-6">
-        <div className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow" aria-hidden />
+        <div
+          className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow"
+          aria-hidden
+        />
         <p className="text-base-content-secondary font-medium">Carregando...</p>
       </div>
     );
@@ -591,29 +138,52 @@ const App: React.FC = () => {
     return <LoginView onLogin={handleLogin} profileError={loginProfileError} />;
   }
 
+  const viewNames: Record<ViewType, string> = {
+    dashboard: 'Dashboard',
+    tasks: 'Demandas',
+    'financial-control': 'Controle Financeiro',
+    reports: 'Relatórios',
+    designers: 'Designers',
+  };
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      <Header activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} loggedInUser={loggedInUser} />
+      <Header
+        activeView={activeView}
+        setActiveView={setActiveView}
+        onLogout={handleLogout}
+        loggedInUser={loggedInUser}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         <main className="main-content-scroll flex-1 p-6 sm:p-8 lg:p-10 overflow-y-auto">
           <div className="max-w-7xl mx-auto w-full">
-          {apiError && (
-            <div className="bg-red-900/30 border border-red-500/40 text-red-200 p-5 rounded-2xl mb-8 relative shadow-card">
-              <h4 className="font-semibold mb-2">Ocorreu um Erro</h4>
-              <pre className="text-sm whitespace-pre-wrap font-sans opacity-90">{apiError}</pre>
-              <button
-                onClick={() => setApiError(null)}
-                className="absolute top-4 right-4 text-red-300 hover:text-white text-xl font-bold leading-none p-1 rounded-xl hover:bg-red-500/20 transition-smooth"
-                aria-label="Fechar aviso"
-              >&times;</button>
-            </div>
-          )}
-          <ViewErrorBoundary
-            viewName={activeView === 'dashboard' ? 'Dashboard' : activeView === 'tasks' ? 'Demandas' : activeView === 'reports' ? 'Relatórios' : activeView === 'designers' ? 'Designers' : 'Página'}
-            onReset={() => setActiveView('dashboard')}
-          >
-            {renderView()}
-          </ViewErrorBoundary>
+            {apiError && (
+              <div
+                className="bg-red-900/30 border border-red-500/40 text-red-200 p-4 rounded-2xl mb-6 relative shadow-card flex flex-col gap-2"
+                role="alert"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <h4 className="font-semibold text-red-100">Ocorreu um erro</h4>
+                  <button
+                    type="button"
+                    onClick={() => setApiError(null)}
+                    className="shrink-0 p-1.5 rounded-lg text-red-300 hover:text-white hover:bg-red-500/20 transition-smooth"
+                    aria-label="Fechar aviso de erro"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <pre className="text-sm whitespace-pre-wrap font-sans opacity-90 overflow-x-auto">
+                  {apiError}
+                </pre>
+              </div>
+            )}
+            <ViewErrorBoundary
+              viewName={viewNames[activeView]}
+              onReset={() => setActiveView('dashboard')}
+            >
+              {renderView()}
+            </ViewErrorBoundary>
           </div>
         </main>
         <footer className="bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">

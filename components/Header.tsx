@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ViewType, Designer } from '../types';
-import { ChartPieIcon, ClipboardDocumentListIcon, PresentationChartBarIcon, UsersIcon, LogoutIcon, MusicNoteIcon } from './icons/Icons';
+import { ChartPieIcon, ClipboardDocumentListIcon, PresentationChartBarIcon, UsersIcon, LogoutIcon, MusicNoteIcon, CashIcon } from './icons/Icons';
 import logophd from '../images/logophd.png';
 
 
@@ -45,6 +45,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onLogout, lo
   const allNavItems: { view: ViewType; label: string; icon: React.ReactNode; roles: string[] }[] = [
     { view: 'dashboard', label: 'Dashboard', icon: <ChartPieIcon />, roles: ['Diretor de Arte', 'Designer', 'Freelancer', 'Financeiro'] },
     { view: 'tasks', label: 'Demandas', icon: <ClipboardDocumentListIcon />, roles: ['Diretor de Arte', 'Designer', 'Freelancer'] },
+    { view: 'financial-control', label: 'Controle Financeiro', icon: <CashIcon />, roles: ['Diretor de Arte', 'Financeiro'] },
     { view: 'reports', label: 'Relatórios', icon: <PresentationChartBarIcon />, roles: ['Diretor de Arte', 'Financeiro'] },
     { view: 'designers', label: 'Designers', icon: <UsersIcon />, roles: ['Diretor de Arte'] },
   ];

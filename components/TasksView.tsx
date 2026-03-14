@@ -1,16 +1,48 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Designer, Task, TaskApprovalStatus, UpdateTaskPayload } from '../types';
 import { MEDIA_PRICES } from '../constants';
 import { formatDate, formatCurrency, getWeekRange, toLocalDateString, getTaskPayableValue } from '../utils/dateUtils';
 import Modal from './Modal';
-import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, SquaresPlusIcon, ClipboardDocumentListIcon, CloudArrowDownIcon } from './icons/Icons';
+import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, ClipboardDocumentListIcon, CloudArrowDownIcon } from './icons/Icons';
+import EmptyState from './EmptyState';
+
+const ARTISTAS_SELECIONAVEIS = [
+  'Aldair Playboy', 'Briola Ferro na Boneca', 'Cesinha', 'Fábricia Cantora', 'Felipe Grilo', 'Felipão',
+  'Forró dos 3', 'Ju Moura', 'Kátia Cilene', 'Kelvy Pablo', 'Laninha Show', 'Mara Pavanelly', 'Pagula',
+  'PHD', 'PHD MKT', 'Renno Poeta', 'Tony Guerra',
+] as const;
+
+const SOLICITANTES_SELECIONAVEIS = [
+  'Jully Morais', 'Livia Xavier', 'Pâmela Emilly', 'Pietra Carvalho', 'Rhuan Coliver', 'Suyanne Almeida',
+] as const;
+
+interface NewDemandRow {
+  id: string;
+  titulo: string;
+  artista: string;
+  design: string;
+  solicitante: string;
+  tag: string;
+  dataDemanda: string;
+  quantidade: number;
+}
+
+const initialNewDemandRow = (): NewDemandRow => ({
+  id: crypto.randomUUID(),
+  titulo: '',
+  artista: '',
+  design: '',
+  solicitante: '',
+  tag: '',
+  dataDemanda: new Date().toISOString().slice(0, 10),
+  quantidade: 1,
+});
 
 interface TasksViewProps {
   tasks: Task[];
   designers: Designer[];
   onAddTask: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>) => Promise<boolean>;
-  onAddTasksBulk: (taskData: Omit<Task, 'id' | 'created_at' | 'value'>, quantity: number) => Promise<boolean>;
+  onInsertTasks: (payloads: Array<Omit<Task, 'id' | 'created_at' | 'value'>>) => Promise<boolean>;
   onUpdateTask: (taskId: string, taskData: UpdateTaskPayload) => void;
   onDeleteTask: (taskId: string) => void;
   onSyncNotion?: () => Promise<{ created: number; error?: string }>;
@@ -87,7 +119,7 @@ const TaskTable: React.FC<{
 const NOTION_SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutos
 const NOTION_SYNC_STORAGE_KEY = 'playhits-last-notion-sync';
 
-const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAddTasksBulk, onUpdateTask, onDeleteTask, onSyncNotion, loggedInUser }) => {
+const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onInsertTasks, onUpdateTask, onDeleteTask, onSyncNotion, loggedInUser }) => {
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeDesigners = Array.isArray(designers) ? designers : [];
   const isDirector = loggedInUser?.role === 'Diretor de Arte';
@@ -100,7 +132,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const defaultFilterDesigner = isDirector ? 'all' : (loggedInUser?.id ?? 'all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const initialFormState: Omit<Task, 'id' | 'created_at' | 'value'> & { approval_status?: Task['approval_status'] } = { 
@@ -113,15 +144,13 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     approval_status: 'approved',
   };
   const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { approval_status?: Task['approval_status'] }>(initialFormState);
-  
-  const [bulkFormData, setBulkFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { quantity: number }>({
-    ...initialFormState,
-    quantity: 1,
-  });
+
+  const [newDemandForm, setNewDemandForm] = useState<NewDemandRow>(() => initialNewDemandRow());
+  const [newDemandLines, setNewDemandLines] = useState<NewDemandRow[]>([]);
+  const [isSubmittingNewDemands, setIsSubmittingNewDemands] = useState(false);
   
   const [filterDesigner, setFilterDesigner] = useState<string>(defaultFilterDesigner);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   const [isSyncingNotion, setIsSyncingNotion] = useState(false);
   const [notionSyncMessage, setNotionSyncMessage] = useState<string | null>(null);
 
@@ -194,20 +223,20 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
 
   const openAddModal = () => {
     setEditingTask(null);
-    setFormData(initialFormState);
+    setNewDemandForm(initialNewDemandRow());
+    setNewDemandLines([]);
     setIsModalOpen(true);
   };
 
-  const openBulkModal = () => {
-    setBulkFormData({
-      ...initialFormState,
-      quantity: 1,
-    });
-    setIsBulkModalOpen(true);
+  const addNewDemandLine = () => {
+    if (!newDemandForm.titulo.trim() || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda) return;
+    const qty = Math.max(1, Math.min(100, newDemandForm.quantidade || 1));
+    setNewDemandLines((prev) => [...prev, { ...newDemandForm, id: crypto.randomUUID(), quantidade: qty }]);
+    setNewDemandForm(initialNewDemandRow());
   };
 
-  const closeBulkModal = () => {
-    setIsBulkModalOpen(false);
+  const removeNewDemandLine = (id: string) => {
+    setNewDemandLines((prev) => prev.filter((r) => r.id !== id));
   };
 
   const openEditModal = (task: Task) => {
@@ -233,6 +262,37 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
   const handleDelete = (taskId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.')) {
       onDeleteTask(taskId);
+    }
+  };
+
+  const handleCreateDemands = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newDemandLines.length === 0) return;
+    const payloads: Array<Omit<Task, 'id' | 'created_at' | 'value'>> = [];
+    for (const row of newDemandLines) {
+      const designer = safeDesigners.find((d) => d.name === row.design);
+      if (!designer) continue;
+      const dueDate = row.dataDemanda.trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) continue;
+      const description = [row.titulo.trim(), row.solicitante ? `Solicitante: ${row.solicitante}` : ''].filter(Boolean).join(' | ') || '-';
+      const taskPayload: Omit<Task, 'id' | 'created_at' | 'value'> = {
+        designer_id: designer.id,
+        media_type: row.tag,
+        due_date: dueDate,
+        artist: row.artista || '-',
+        social_media: '-',
+        description,
+      };
+      for (let i = 0; i < row.quantidade; i++) payloads.push({ ...taskPayload });
+    }
+    if (payloads.length === 0) return;
+    setIsSubmittingNewDemands(true);
+    const success = await onInsertTasks(payloads);
+    setIsSubmittingNewDemands(false);
+    if (success) {
+      closeModal();
+      setNewDemandLines([]);
+      setNewDemandForm(initialNewDemandRow());
     }
   };
 
@@ -279,42 +339,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
     const success = await onAddTask(payload);
     setIsSubmitting(false);
     if (success) closeModal();
-  };
-
-  const handleBulkSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1) return;
-
-    const payload = {
-      designer_id: bulkFormData.designer_id,
-      media_type: bulkFormData.media_type,
-      due_date: bulkFormData.due_date,
-      artist: bulkFormData.artist || '-',
-      social_media: bulkFormData.social_media || '-',
-      description: '-',
-    };
-
-    if (isDirector && filterDesigner !== 'all' && filterDesigner !== bulkFormData.designer_id) {
-      setFilterDesigner(bulkFormData.designer_id);
-    }
-
-    const dueDateStr = bulkFormData.due_date;
-    if (startDate && endDate) {
-      if (dueDateStr < startDate || dueDateStr > endDate) {
-        const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
-        setStartDate(toLocalDateString(weekRange.start));
-        setEndDate(toLocalDateString(weekRange.end));
-      }
-    } else {
-      const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
-      setStartDate(toLocalDateString(weekRange.start));
-      setEndDate(toLocalDateString(weekRange.end));
-    }
-
-    setIsBulkSubmitting(true);
-    const success = await onAddTasksBulk(payload, bulkFormData.quantity);
-    setIsBulkSubmitting(false);
-    if (success) closeBulkModal();
   };
 
   const filteredTasks = useMemo(() => {
@@ -404,13 +428,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
                 </button>
               )}
               <button 
-                onClick={openBulkModal} 
-                className="flex items-center bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-sm"
-              >
-                <SquaresPlusIcon />
-                <span className="ml-2">Adicionar em Massa</span>
-              </button>
-              <button 
                 onClick={openAddModal} 
                 className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand"
               >
@@ -497,137 +514,208 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onAd
             );
           })
         ) : (
-          <div className="bg-base-100 rounded-2xl shadow-card border border-base-300/40 text-center p-8 text-base-content-secondary">
-            Nenhuma demanda encontrada para os filtros selecionados.
-          </div>
+          <EmptyState
+            icon={<ClipboardDocumentListIcon />}
+            title="Nenhuma demanda encontrada para os filtros selecionados."
+            description="Ajuste os filtros de designer ou período para ver as demandas."
+          />
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingTask ? 'Editar Demanda' : 'Adicionar Nova Demanda'}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {isDirector && (
-            <div>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editingTask ? 'Editar Demanda' : 'Nova Demanda'}>
+        {editingTask ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isDirector && (
+              <div>
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
                 <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
-                <option value="">Selecione um designer</option>
-                {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  <option value="">Selecione um designer</option>
+                  {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
-            </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
-            <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
-              <option value="">Selecione um tipo</option>
-              {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
-            <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
-          </div>
-          {isDirector && (
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-base-content-secondary mb-1">Status da demanda</label>
-              <select
-                value={formData.approval_status ?? 'approved'}
-                onChange={e => setFormData({ ...formData, approval_status: e.target.value as TaskApprovalStatus })}
-                className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
-              >
-                <option value="approved">Aprovada (valor integral)</option>
-                <option value="rejected">Reprovada (paga 30%)</option>
+              <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
+              <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
+                <option value="">Selecione um tipo</option>
+                {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
               </select>
             </div>
-          )}
-          <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
-            <button type="submit" disabled={isSubmitting} className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:cursor-not-allowed">
-              {isSubmitting ? 'Salvando...' : (editingTask ? 'Salvar Alterações' : 'Adicionar')}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={isBulkModalOpen} onClose={closeBulkModal} title="Adicionar Demandas em Massa">
-        <form onSubmit={handleBulkSubmit} className="space-y-4">
-          <div className="bg-blue-900/20 border border-blue-500/40 rounded-xl p-3 mb-4">
-            <p className="text-sm text-blue-300">
-              <strong>Como usar:</strong> Preencha os dados abaixo e especifique a quantidade. Serão criadas múltiplas demandas idênticas com os mesmos parâmetros.
-            </p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
-            <select 
-              value={bulkFormData.designer_id} 
-              onChange={e => setBulkFormData({ ...bulkFormData, designer_id: e.target.value })} 
-              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
-              required
-            >
-              <option value="">Selecione um designer</option>
-              {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
-            <select 
-              value={bulkFormData.media_type} 
-              onChange={e => setBulkFormData({ ...bulkFormData, media_type: e.target.value })} 
-              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
-              required
-            >
-              <option value="">Selecione um tipo</option>
-              {Object.entries(MEDIA_PRICES).map(([key, media]) => (
-                <option key={key} value={key}>
-                  {media.name} - {formatCurrency(media.price)}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
-            <input 
-              type="date" 
-              value={bulkFormData.due_date} 
-              onChange={e => setBulkFormData({ ...bulkFormData, due_date: e.target.value })} 
-              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
-              required 
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-base-content-secondary mb-1">Quantidade</label>
-            <input 
-              type="number" 
-              min="1" 
-              max="100" 
-              value={bulkFormData.quantity} 
-              onChange={e => setBulkFormData({ ...bulkFormData, quantity: parseInt(e.target.value) || 1 })} 
-              className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" 
-              required 
-            />
-            <p className="text-xs text-base-content-secondary mt-1">
-              Número de demandas idênticas a serem criadas (máximo: 100)
-            </p>
-          </div>
-          
-          <div className="bg-base-200/50 rounded-xl p-3 mt-4">
-            <p className="text-sm text-base-content-secondary">
-              <strong>Resumo:</strong> Serão criadas <strong className="text-base-content">{bulkFormData.quantity}</strong> demanda(s) do tipo <strong className="text-base-content">{bulkFormData.media_type || 'N/A'}</strong> para <strong className="text-base-content">{bulkFormData.designer_id ? safeDesigners.find(d => d.id === bulkFormData.designer_id)?.name || 'N/A' : 'N/A'}</strong> com entrega em <strong className="text-base-content">{bulkFormData.due_date || 'N/A'}</strong>.
-            </p>
-          </div>
-          
-          <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
-            <button 
-              type="submit" 
-              className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-500 transition-smooth shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={!bulkFormData.designer_id || !bulkFormData.media_type || !bulkFormData.due_date || bulkFormData.quantity < 1 || isBulkSubmitting}
-            >
-              {isBulkSubmitting ? 'Salvando...' : `Adicionar ${bulkFormData.quantity} Demanda(s)`}
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
+              <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
+            </div>
+            {isDirector && (
+              <div>
+                <label className="block text-sm font-medium text-base-content-secondary mb-1">Status da demanda</label>
+                <select
+                  value={formData.approval_status ?? 'approved'}
+                  onChange={e => setFormData({ ...formData, approval_status: e.target.value as TaskApprovalStatus })}
+                  className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
+                >
+                  <option value="approved">Aprovada (valor integral)</option>
+                  <option value="rejected">Reprovada (paga 30%)</option>
+                </select>
+              </div>
+            )}
+            <div className="flex justify-end pt-4 sticky bottom-0 bg-base-100 pb-2">
+              <button type="submit" disabled={isSubmitting} className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:cursor-not-allowed">
+                {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <p className="text-xs text-base-content-secondary mb-4">Monte um relatório com título, artista, design, solicitante, tag, data da demanda e quantidade.</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Título da demanda</label>
+                  <input
+                    type="text"
+                    value={newDemandForm.titulo}
+                    onChange={e => setNewDemandForm(f => ({ ...f, titulo: e.target.value }))}
+                    placeholder="Ex.: Arte agenda Insta"
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Artista</label>
+                  <select
+                    value={newDemandForm.artista}
+                    onChange={e => setNewDemandForm(f => ({ ...f, artista: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  >
+                    <option value="">Selecione o artista</option>
+                    {ARTISTAS_SELECIONAVEIS.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Design</label>
+                  <select
+                    value={newDemandForm.design}
+                    onChange={e => setNewDemandForm(f => ({ ...f, design: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  >
+                    <option value="">Selecione o design</option>
+                    {safeDesigners.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Solicitante</label>
+                  <select
+                    value={newDemandForm.solicitante}
+                    onChange={e => setNewDemandForm(f => ({ ...f, solicitante: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  >
+                    <option value="">Selecione o solicitante</option>
+                    {SOLICITANTES_SELECIONAVEIS.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Tag</label>
+                  <select
+                    value={newDemandForm.tag}
+                    onChange={e => setNewDemandForm(f => ({ ...f, tag: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  >
+                    <option value="">Selecione...</option>
+                    {Object.keys(MEDIA_PRICES).map(key => (
+                      <option key={key} value={key}>{key}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Data da demanda</label>
+                  <input
+                    type="date"
+                    value={newDemandForm.dataDemanda}
+                    onChange={e => setNewDemandForm(f => ({ ...f, dataDemanda: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Quantidade</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={newDemandForm.quantidade || ''}
+                    onChange={e => setNewDemandForm(f => ({ ...f, quantidade: parseInt(e.target.value, 10) || 1 }))}
+                    placeholder="Ex.: 1"
+                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={addNewDemandLine}
+                  disabled={!newDemandForm.titulo.trim() || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold bg-brand-primary text-white hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  Adicionar linha
+                </button>
+                {newDemandLines.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleCreateDemands(e)}
+                    disabled={isSubmittingNewDemands}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSubmittingNewDemands ? 'Criando...' : `Criar ${newDemandLines.reduce((acc, r) => acc + r.quantidade, 0)} demanda(s)`}
+                  </button>
+                )}
+              </div>
+              {newDemandLines.length > 0 && (
+                <div className="overflow-x-auto rounded-xl border border-base-300/50 max-h-48 overflow-y-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-base-200/95 z-10">
+                      <tr className="border-b border-base-300">
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Título</th>
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Artista</th>
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Design</th>
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Tag</th>
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Data</th>
+                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Qtd</th>
+                        <th className="px-3 py-2 w-10" aria-label="Remover" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newDemandLines.map(row => (
+                        <tr key={row.id} className="border-b border-base-300/30 last:border-b-0">
+                          <td className="px-3 py-2 text-base-content">{row.titulo}</td>
+                          <td className="px-3 py-2 text-base-content-secondary">{row.artista || '—'}</td>
+                          <td className="px-3 py-2 text-base-content-secondary">{row.design || '—'}</td>
+                          <td className="px-3 py-2 text-base-content-secondary">{row.tag || '—'}</td>
+                          <td className="px-3 py-2 text-base-content-secondary">{row.dataDemanda ? new Date(row.dataDemanda + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                          <td className="px-3 py-2 text-base-content-secondary">{row.quantidade}</td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => removeNewDemandLine(row.id)}
+                              className="p-1.5 text-base-content-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors"
+                              title="Remover linha"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );

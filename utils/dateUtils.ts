@@ -90,6 +90,26 @@ function getWeekRangeFallback(): { start: Date; end: Date } {
   return { start, end };
 }
 
+/** Retorna a chave da semana (sábado em YYYY-MM-DD) para uma data. */
+export const getWeekKey = (date: Date): string => {
+  const { start } = getWeekRange(date);
+  return toLocalDateString(start);
+};
+
+/** Dada uma chave de semana (YYYY-MM-DD do sábado), retorna a chave da semana anterior (7 dias antes). */
+export const getPreviousWeekKey = (weekKey: string): string => {
+  const d = new Date(`${weekKey}T12:00:00.000-03:00`);
+  d.setUTCDate(d.getUTCDate() - 7);
+  return toLocalDateString(d);
+};
+
+/** Dada uma chave de semana (YYYY-MM-DD do sábado), retorna a chave da semana seguinte (7 dias depois). */
+export const getNextWeekKey = (weekKey: string): string => {
+  const d = new Date(`${weekKey}T12:00:00.000-03:00`);
+  d.setUTCDate(d.getUTCDate() + 7);
+  return toLocalDateString(d);
+};
+
 export const getMonthRange = (date: Date): { start: Date; end: Date } => {
     const yearStr = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: TIMEZONE }).format(date);
     const monthStr = new Intl.DateTimeFormat('en-US', { month: '2-digit', timeZone: TIMEZONE }).format(date);
