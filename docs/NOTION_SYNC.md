@@ -36,27 +36,56 @@ Crie um database no Notion (ou use um existente) com pelo menos estas colunas:
   `https://www.notion.so/workspace/NOME-DO-DATABASE?id=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`  
 - O **id** (a parte depois de `id=`) é o **NOTION_DATABASE_ID**. Use o ID **sem hífens** na API (ou com hífens, conforme a documentação do Notion).
 
-## 4. Supabase: migration e secrets
+## 4. Supabase: migration
 
-1. **Migration** (coluna para evitar duplicatas):
+Rode a migration que adiciona `notion_page_id` em `tasks` (no Supabase SQL Editor ou via `supabase db push`):
 
-   Rode a migration que adiciona `notion_page_id` em `tasks`:
+- Arquivo: `supabase/migrations/20250314_add_notion_page_id_to_tasks.sql`
 
-   ```bash
-   supabase db push
-   # ou execute manualmente: supabase/migrations/20250314_add_notion_page_id_to_tasks.sql
-   ```
+---
 
-2. **Secrets da Edge Function**:
+## Opção A — Manual (recomendado): rota de API no Vercel
 
-   No dashboard do Supabase → **Edge Functions** → **sync-notion** → **Secrets** (ou via CLI):
+Sem Docker nem Supabase CLI. O projeto já inclui a rota **`api/sync-notion.ts`**. Basta fazer deploy do app na Vercel e configurar as variáveis de ambiente.
+
+### Passos
+
+1. **Deploy na Vercel**
+   - Conecte o repositório em [vercel.com](https://vercel.com) e faça o deploy (ou `vercel` no terminal).
+   - A pasta `api/` vira uma função serverless em **`/api/sync-notion`**.
+
+2. **Variáveis de ambiente no painel da Vercel**
+   - Projeto → **Settings** → **Environment Variables**. Adicione:
+
+   | Nome                         | Valor                                                                 | Observação |
+   |-----------------------------|-----------------------------------------------------------------------|------------|
+   | `NOTION_API_KEY`            | Token da integração do Notion                                         | Obrigatório |
+   | `NOTION_DATABASE_ID`        | ID do database (ex.: `29d71419772880b1872fcf285aeff5bb`)              | Obrigatório |
+   | `SUPABASE_URL`              | `https://kkoeclshogsufckkpqjj.supabase.co` (sua URL do projeto)       | Obrigatório |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Chave **service_role** do Supabase (não a anon)                       | Obrigatório |
+
+   - Para obter a **service_role**: Supabase Dashboard → **Project Settings** → **API** → em "Project API keys" copie a chave **service_role** (secret). Não use em front-end; só na API serverless.
+
+3. **Redeploy**
+   - Depois de salvar as variáveis, faça um novo deploy (Redeploy no último deployment ou push no Git).
+
+4. **Testar**
+   - Abra o app na URL da Vercel → **Demandas** → **Sincronizar com Notion**.
+
+O app chama primeiro `/api/sync-notion` (mesma origem). Se estiver no ar na Vercel com as env vars certas, a sincronização funciona sem Edge Function.
+
+---
+
+## Opção B — Edge Function no Supabase (exige Docker + CLI)
+
+1. **Secrets da Edge Function** (Dashboard do Supabase ou CLI):
 
    ```bash
    supabase secrets set NOTION_API_KEY="seu_token_da_integracao_notion"
    supabase secrets set NOTION_DATABASE_ID="id_do_database_sem_hifens"
    ```
 
-   Opcionais (se os nomes das propriedades no Notion forem diferentes):
+   Opcionais (nomes das propriedades no Notion diferentes do padrão):
 
    ```bash
    supabase secrets set NOTION_PROP_DESIGNER="Designer"
@@ -67,11 +96,13 @@ Crie um database no Notion (ou use um existente) com pelo menos estas colunas:
    supabase secrets set NOTION_PROP_DESCRIPTION="Descrição"
    ```
 
-3. **Deploy da Edge Function**:
+2. **Deploy da Edge Function** (Docker precisa estar rodando):
 
    ```bash
    supabase functions deploy sync-notion
    ```
+
+   Se a função `sync-notion` não estiver deployada, o app tenta a rota `/api/sync-notion` (útil quando o app está na Vercel).
 
 ## 5. Sincronização automática
 
@@ -83,7 +114,7 @@ Crie um database no Notion (ou use um existente) com pelo menos estas colunas:
 1. Database no Notion com colunas Designer, Tipo de mídia, Data de entrega (e opcionais).
 2. Integração Notion criada e database compartilhado com ela.
 3. Migration aplicada no Supabase (`notion_page_id` em `tasks`).
-4. Secrets `NOTION_API_KEY` e `NOTION_DATABASE_ID` na Edge Function.
-5. Deploy da função `sync-notion`.
+4. **Manual (recomendado):** Deploy do app na Vercel e variáveis `NOTION_API_KEY`, `NOTION_DATABASE_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` no painel da Vercel.  
+   **Ou** deploy da Edge Function no Supabase (Docker + `supabase functions deploy sync-notion`).
 
 Depois disso, use **"Sincronizar com Notion"** na tela de Demandas ou deixe o app puxar sozinho ao abrir a tela (respeitando o cooldown de 5 min).

@@ -349,17 +349,39 @@ const App: React.FC = () => {
     }
   };
 
-  /** Sincroniza demandas do Notion (Edge Function) e recarrega a lista de tasks. */
+  /** Sincroniza demandas do Notion (rota /api/sync-notion ou Edge Function) e recarrega a lista de tasks. */
   const syncNotion = async (): Promise<{ created: number; error?: string }> => {
     setApiError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-notion');
-      if (error) {
-        const errMsg = error.message || 'Falha ao chamar a sincronização com o Notion.';
-        setApiError(errMsg);
-        return { created: 0, error: errMsg };
+      // 1) Tenta a rota de API (deploy manual na Vercel/etc.)
+      const apiUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/sync-notion` : '';
+      let created = 0;
+      let usedApi = false;
+      if (apiUrl) {
+        try {
+          const res = await fetch(apiUrl, { method: 'POST' });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && typeof json.created === 'number') {
+            created = json.created;
+            usedApi = true;
+          } else if (!res.ok && json.error) {
+            setApiError(json.error);
+            return { created: 0, error: json.error };
+          }
+        } catch (_) {
+          // fetch falhou (ex.: 404 em dev); tenta Edge Function
+        }
       }
-      const created = typeof data?.created === 'number' ? data.created : 0;
+      // 2) Se não usou a API, tenta Edge Function do Supabase
+      if (!usedApi) {
+        const { data, error } = await supabase.functions.invoke('sync-notion');
+        if (error) {
+          const errMsg = error.message || 'Falha ao chamar a sincronização com o Notion.';
+          setApiError(errMsg);
+          return { created: 0, error: errMsg };
+        }
+        created = typeof data?.created === 'number' ? data.created : 0;
+      }
       const { data: tasksRes, error: fetchErr } = await supabase
         .from('tasks')
         .select('*')
