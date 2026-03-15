@@ -1,10 +1,84 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Designer, Task, Advance, DesignerType } from '../types';
 import { PresentationChartBarIcon, ClockIcon } from './icons/Icons';
 import { getWeekRange, toLocalDateString, getTaskDueDateAsDate, getWeekKey, getPreviousWeekKey, getNextWeekKey, formatDate, getTaskPayableValue, formatCurrency } from '../utils/dateUtils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import logophd from '../images/logophd.png';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+
+/** Paleta de cores para gráficos (barras e categorias). */
+const CHART_COLORS = [
+  '#6366f1', // indigo
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#8b5cf6', // violet
+  '#14b8a6', // teal
+  '#f97316', // orange
+];
+
+const PIE_APPROVED = '#059669';
+const PIE_REJECTED = '#dc2626';
+
+/** Estilo do tooltip dos gráficos ao passar o mouse. */
+const chartTooltipStyle = {
+  backgroundColor: 'hsl(var(--b1))',
+  border: '1px solid hsl(var(--bc) / 0.2)',
+  borderRadius: '12px',
+  padding: '12px 16px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+  fontSize: '13px',
+  fontWeight: 500,
+  color: 'hsl(var(--bc))',
+};
+
+/** Tooltip customizado: indicador colorido + label + valor formatado. */
+const ReportChartTooltip: React.FC<{
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string; payload?: { name?: string } }>;
+  label?: string;
+  formatter?: (value: number) => string;
+  labelFormatter?: (label: string) => string;
+}> = ({ active, payload, label, formatter, labelFormatter }) => {
+  if (!active || !payload?.length) return null;
+  const item = payload[0];
+  const value = typeof item.value === 'number' ? item.value : 0;
+  const rawLabel = label ?? item.payload?.name ?? item.name ?? '';
+  const color = item.color ?? 'hsl(var(--p))';
+  const formatted = formatter ? formatter(value) : `${value} demanda${value !== 1 ? 's' : ''}`;
+  const displayName = labelFormatter ? labelFormatter(String(rawLabel)) : rawLabel;
+  return (
+    <div
+      style={{
+        ...chartTooltipStyle,
+        transition: 'opacity 0.15s ease, transform 0.15s ease',
+      }}
+      className="report-chart-tooltip"
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 10, height: 10, borderRadius: 4, backgroundColor: color, flexShrink: 0 }} aria-hidden />
+        <div>
+          {displayName && <div style={{ fontWeight: 600, marginBottom: 2 }}>{displayName}</div>}
+          <div style={{ fontSize: '12px', opacity: 0.9 }}>{formatted}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface ReportsViewProps {
   designers: Designer[];
@@ -146,6 +220,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
     }
   });
 
+  const chartStatusPieRef = useRef<HTMLDivElement>(null);
+  const chartMediaBarRef = useRef<HTMLDivElement>(null);
+  const chartTopSolicitantesRef = useRef<HTMLDivElement>(null);
+  const chartTopArtistsRef = useRef<HTMLDivElement>(null);
+  const chartTopDesignersRef = useRef<HTMLDivElement>(null);
+
   const weekOptionsForSelect = useMemo(() => {
     const set = new Set(availableWeekKeys);
     if (!set.has(selectedWeekKey)) set.add(selectedWeekKey);
@@ -251,29 +331,32 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
       y += 7;
 
       const body = group.tasks.map(t => [
-        getTituloFromDescription(t.description).slice(0, 35),
-        (t.artist || '—').slice(0, 20),
-        parseSolicitanteFromDescription(t.description).slice(0, 18),
-        (t.media_type || '—').slice(0, 12),
+        getTituloFromDescription(t.description),
+        t.artist || '—',
+        parseSolicitanteFromDescription(t.description),
+        t.media_type || '—',
         formatDate(t.due_date),
         t.approval_status === 'rejected' ? 'Reprovada' : 'Aprovada',
       ]);
 
+      const tableMargin = margin;
+      // Larguras que cabem na página (A4 ~210mm) com margem; texto completo com quebra de linha
+      const colWidths = [55, 25, 30, 35, 22, 15] as const;
       autoTable(doc, {
         startY: y,
         head,
         body,
-        margin: { left: margin, right: margin },
+        margin: { left: tableMargin, right: tableMargin },
         theme: 'grid',
         headStyles: { fillColor: [42, 46, 56], fontSize: 8 },
-        bodyStyles: { fontSize: 7 },
+        bodyStyles: { fontSize: 7, overflow: 'linebreak', cellPadding: 3 },
         columnStyles: {
-          0: { cellWidth: 45 },
-          1: { cellWidth: 28 },
-          2: { cellWidth: 28 },
-          3: { cellWidth: 22 },
-          4: { cellWidth: 22 },
-          5: { cellWidth: 20 },
+          0: { cellWidth: colWidths[0], overflow: 'linebreak' },
+          1: { cellWidth: colWidths[1], overflow: 'linebreak' },
+          2: { cellWidth: colWidths[2], overflow: 'linebreak' },
+          3: { cellWidth: colWidths[3], overflow: 'linebreak' },
+          4: { cellWidth: colWidths[4] },
+          5: { cellWidth: colWidths[5] },
         },
       });
       const docWithTable = doc as unknown as { lastAutoTable?: { finalY: number } };
@@ -368,6 +451,92 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
         doc.text(`• ${label}: ${count}`, margin, y);
         y += 5;
       });
+    }
+
+    const pageH = doc.getPageHeight();
+    const maxY = pageH - 20;
+    const gap = 6;
+    const contentW = pageW - margin * 2;
+    const topRowW = (contentW - gap) / 2;
+    const topRowH = 48;
+    const bottomRowW = (contentW - gap * 2) / 3;
+    const bottomRowH = 38;
+
+    const addChartImage = async (el: HTMLElement | null, maxW: number, maxH: number): Promise<{ dataUrl: string; w: number; h: number } | null> => {
+      if (!el) return null;
+      try {
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#1e293b',
+          logging: false,
+        });
+        const dataUrl = canvas.toDataURL('image/png');
+        const aspect = canvas.height / canvas.width;
+        let w = maxW;
+        let h = w * aspect;
+        if (h > maxH) {
+          h = maxH;
+          w = h / aspect;
+        }
+        return { dataUrl, w, h };
+      } catch {
+        return null;
+      }
+    };
+
+    const statusPieEl = reportSummary.totalDemandas > 0 && reportSummary.totalAprovadas + reportSummary.totalReprovadas > 0 ? chartStatusPieRef.current : null;
+    const mediaBarEl = reportSummary.byMediaType.length > 0 ? chartMediaBarRef.current : null;
+    const topSolEl = reportSummary.topSolicitantes.length > 0 ? chartTopSolicitantesRef.current : null;
+    const topArtEl = reportSummary.topArtists.length > 0 ? chartTopArtistsRef.current : null;
+    const topDesEl = reportSummary.topDesigners.length > 0 ? chartTopDesignersRef.current : null;
+    const hasTopRow = statusPieEl || mediaBarEl;
+    const hasBottomRow = topSolEl || topArtEl || topDesEl;
+
+    if (hasTopRow || hasBottomRow) {
+      y += 10;
+      if (y > maxY - 70) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text('Gráficos', margin, y);
+      y += 8;
+
+      if (hasTopRow) {
+        const r1 = await addChartImage(statusPieEl, topRowW, topRowH);
+        const r2 = await addChartImage(mediaBarEl, topRowW, topRowH);
+        const rowH = Math.max(r1?.h ?? 0, r2?.h ?? 0, topRowH);
+        if (y + rowH > maxY) {
+          doc.addPage();
+          y = 20;
+        }
+        if (r1) {
+          doc.addImage(r1.dataUrl, 'PNG', margin, y + (rowH - r1.h) / 2, r1.w, r1.h);
+        }
+        if (r2) {
+          doc.addImage(r2.dataUrl, 'PNG', margin + topRowW + gap, y + (rowH - r2.h) / 2, r2.w, r2.h);
+        }
+        y += rowH + gap;
+      }
+
+      if (hasBottomRow) {
+        const r3 = await addChartImage(topSolEl, bottomRowW, bottomRowH);
+        const r4 = await addChartImage(topArtEl, bottomRowW, bottomRowH);
+        const r5 = await addChartImage(topDesEl, bottomRowW, bottomRowH);
+        const rowH = Math.max(r3?.h ?? 0, r4?.h ?? 0, r5?.h ?? 0, bottomRowH);
+        if (y + rowH > maxY) {
+          doc.addPage();
+          y = 20;
+        }
+        const bottomCharts = [r3, r4, r5].filter((r): r is NonNullable<typeof r3> => r != null);
+        bottomCharts.forEach((result, i) => {
+          const x = margin + i * (bottomRowW + gap);
+          doc.addImage(result.dataUrl, 'PNG', x, y + (rowH - result.h) / 2, result.w, result.h);
+        });
+        y += rowH + 4;
+      }
     }
 
     doc.save(`relatorio-${selectedWeekKey}.pdf`);
@@ -556,6 +725,161 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
                           <p className="text-xs font-medium text-base-content-secondary uppercase tracking-wide">Design que mais atendeu</p>
                           <p className="text-base font-bold text-base-content mt-0.5 truncate" title={reportSummary.topDesigner.name}>{reportSummary.topDesigner.name}</p>
                           <p className="text-xs text-base-content-secondary mt-1">{reportSummary.topDesigner.count} demanda{reportSummary.topDesigner.count !== 1 ? 's' : ''}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Gráficos do resumo */}
+                    <div className="border-t border-base-300/50 pt-6 space-y-6">
+                      <p className="text-xs font-semibold text-base-content-secondary uppercase tracking-wide">Gráficos</p>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Pizza: Status (Aprovadas vs Reprovadas) */}
+                        {reportSummary.totalDemandas > 0 && (() => {
+                          const statusPieData = [
+                            { name: 'Aprovadas', value: reportSummary.totalAprovadas, color: PIE_APPROVED },
+                            { name: 'Reprovadas', value: reportSummary.totalReprovadas, color: PIE_REJECTED },
+                          ].filter(d => d.value > 0);
+                          return (
+                            <div ref={chartStatusPieRef} className="rounded-2xl bg-gradient-to-br from-base-300/30 to-base-300/10 border border-base-300/50 p-5 shadow-sm">
+                              <p className="text-sm font-bold text-base-content mb-4">Status das demandas</p>
+                              <div className="h-[240px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={statusPieData}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={52}
+                                      outerRadius={88}
+                                      paddingAngle={3}
+                                      dataKey="value"
+                                      strokeWidth={2}
+                                      stroke="hsl(var(--b1))"
+                                      label={({ x, y, textAnchor, name, value }) => (
+                                        <text x={x} y={y} textAnchor={textAnchor} fill="#fff" fontSize={11} fontWeight={500}>
+                                          {name}: {value}
+                                        </text>
+                                      )}
+                                      labelLine={{ strokeWidth: 1.5, stroke: '#fff' }}
+                                    >
+                                      {statusPieData.map((entry) => (
+                                        <Cell key={entry.name} fill={entry.color} stroke={entry.color} strokeWidth={1} style={{ outline: 'none' }} />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip
+                                      content={(props) => <ReportChartTooltip {...props} formatter={(v) => `${v} demanda${v !== 1 ? 's' : ''}`} />}
+                                      cursor={{ fill: 'hsl(var(--bc) / 0.06)', stroke: 'hsl(var(--p) / 0.4)', strokeWidth: 1, radius: 4 }}
+                                      wrapperStyle={{ outline: 'none' }}
+                                    />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Barras: Demandas por tipo de mídia (tag) */}
+                        {reportSummary.byMediaType.length > 0 && (() => {
+                          const mediaData = reportSummary.byMediaType.map(({ label, count }) => ({ name: label, demandas: count }));
+                          return (
+                            <div ref={chartMediaBarRef} className="rounded-2xl bg-gradient-to-br from-base-300/30 to-base-300/10 border border-base-300/50 p-5 shadow-sm">
+                              <p className="text-sm font-bold text-base-content mb-4">Demandas por tipo de mídia (tag)</p>
+                              <div className="h-[240px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={mediaData} layout="vertical" margin={{ top: 8, right: 20, left: 8, bottom: 8 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" vertical={false} />
+                                    <XAxis type="number" tick={{ fontSize: 11, fill: '#fff' }} stroke="#fff" />
+                                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: '#fff' }} stroke="#fff" />
+                                    <Tooltip
+                                      content={(props) => <ReportChartTooltip {...props} formatter={(v) => `${v} demanda${v !== 1 ? 's' : ''}`} labelFormatter={(l) => l || 'Demandas'} />}
+                                      cursor={{ fill: 'hsl(var(--bc) / 0.06)', stroke: 'hsl(var(--p) / 0.4)', strokeWidth: 1, radius: 4 }}
+                                      wrapperStyle={{ outline: 'none' }}
+                                    />
+                                    <Bar dataKey="demandas" name="Demandas" radius={[0, 6, 6, 0]} maxBarSize={36}>
+                                      {mediaData.map((_, i) => (
+                                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={0} />
+                                      ))}
+                                    </Bar>
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Barras: Top 3 Solicitantes, Artistas e Designers */}
+                      {(reportSummary.topSolicitantes.length > 0 || reportSummary.topArtists.length > 0 || reportSummary.topDesigners.length > 0) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                          {reportSummary.topSolicitantes.length > 0 && (() => {
+                            const data = reportSummary.topSolicitantes.map(({ name, count }) => ({ name: name.length > 18 ? name.slice(0, 17) + '…' : name, demandas: count }));
+                            return (
+                              <div ref={chartTopSolicitantesRef} className="rounded-2xl bg-gradient-to-br from-base-300/30 to-base-300/10 border border-base-300/50 p-5 shadow-sm">
+                                <p className="text-sm font-bold text-base-content mb-4">Top 3 solicitantes</p>
+                                <div className="h-[180px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" vertical={false} />
+                                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#fff' }} stroke="#fff" />
+                                      <YAxis tick={{ fontSize: 11, fill: '#fff' }} allowDecimals={false} stroke="#fff" />
+                                      <Tooltip content={(props) => <ReportChartTooltip {...props} formatter={(v) => `${v} demanda${v !== 1 ? 's' : ''}`} labelFormatter={(l) => l || ''} />} cursor={{ fill: 'hsl(var(--bc) / 0.06)', stroke: 'hsl(var(--p) / 0.4)', strokeWidth: 1, radius: 4 }} wrapperStyle={{ outline: 'none' }} />
+                                      <Bar dataKey="demandas" name="Demandas" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                                        {data.map((_, i) => (
+                                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {reportSummary.topArtists.length > 0 && (() => {
+                            const data = reportSummary.topArtists.map(({ name, count }) => ({ name: name.length > 18 ? name.slice(0, 17) + '…' : name, demandas: count }));
+                            return (
+                              <div ref={chartTopArtistsRef} className="rounded-2xl bg-gradient-to-br from-base-300/30 to-base-300/10 border border-base-300/50 p-5 shadow-sm">
+                                <p className="text-sm font-bold text-base-content mb-4">Top 3 artistas</p>
+                                <div className="h-[180px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" vertical={false} />
+                                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#fff' }} stroke="#fff" />
+                                      <YAxis tick={{ fontSize: 11, fill: '#fff' }} allowDecimals={false} stroke="#fff" />
+                                      <Tooltip content={(props) => <ReportChartTooltip {...props} formatter={(v) => `${v} demanda${v !== 1 ? 's' : ''}`} labelFormatter={(l) => l || ''} />} cursor={{ fill: 'hsl(var(--bc) / 0.06)', stroke: 'hsl(var(--p) / 0.4)', strokeWidth: 1, radius: 4 }} wrapperStyle={{ outline: 'none' }} />
+                                      <Bar dataKey="demandas" name="Demandas" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                                        {data.map((_, i) => (
+                                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {reportSummary.topDesigners.length > 0 && (() => {
+                            const data = reportSummary.topDesigners.map(({ name, count }) => ({ name: name.length > 18 ? name.slice(0, 17) + '…' : name, demandas: count }));
+                            return (
+                              <div ref={chartTopDesignersRef} className="rounded-2xl bg-gradient-to-br from-base-300/30 to-base-300/10 border border-base-300/50 p-5 shadow-sm">
+                                <p className="text-sm font-bold text-base-content mb-4">Top 3 designers</p>
+                                <div className="h-[180px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.15)" vertical={false} />
+                                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#fff' }} stroke="#fff" />
+                                      <YAxis tick={{ fontSize: 11, fill: '#fff' }} allowDecimals={false} stroke="#fff" />
+                                      <Tooltip content={(props) => <ReportChartTooltip {...props} formatter={(v) => `${v} demanda${v !== 1 ? 's' : ''}`} labelFormatter={(l) => l || ''} />} cursor={{ fill: 'hsl(var(--bc) / 0.06)', stroke: 'hsl(var(--p) / 0.4)', strokeWidth: 1, radius: 4 }} wrapperStyle={{ outline: 'none' }} />
+                                      <Bar dataKey="demandas" name="Demandas" radius={[6, 6, 0, 0]} maxBarSize={40}>
+                                        {data.map((_, i) => (
+                                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
