@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Designer, Task, Advance } from '../types';
+import { Designer, Task, Advance, DesignerType } from '../types';
 import { PresentationChartBarIcon, ClockIcon } from './icons/Icons';
-import { getWeekRange, toLocalDateString, getTaskDueDateAsDate, getWeekKey, getPreviousWeekKey, getNextWeekKey, formatDate } from '../utils/dateUtils';
+import { getWeekRange, toLocalDateString, getTaskDueDateAsDate, getWeekKey, getPreviousWeekKey, getNextWeekKey, formatDate, getTaskPayableValue, formatCurrency } from '../utils/dateUtils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logophd from '../images/logophd.png';
@@ -76,6 +76,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeDesigners = Array.isArray(designers) ? designers : [];
   const designerMap = useMemo(() => new Map(safeDesigners.map(d => [d.id, d.name])), [safeDesigners]);
+  const fixedDesignerIds = useMemo(() => new Set(safeDesigners.filter(d => d.type === DesignerType.Fixed).map(d => d.id)), [safeDesigners]);
 
   const tasksByWeek = useMemo(() => {
     const map = new Map<string, { range: { start: Date; end: Date }; tasks: Task[] }>();
@@ -143,6 +144,13 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
   const tasksForWeek = selectedWeekData?.tasks ?? [];
 
   const tasksByDesigner = useMemo(() => groupTasksByDesigner(tasksForWeek, designerMap), [tasksForWeek, designerMap]);
+  const tasksByDesignerWithTotal = useMemo(() => {
+    return tasksByDesigner.map(group => {
+      const isFixed = fixedDesignerIds.has(group.designerId);
+      const totalValue = isFixed ? null : group.tasks.reduce((sum, t) => sum + getTaskPayableValue(t), 0);
+      return { ...group, totalValue };
+    });
+  }, [tasksByDesigner, fixedDesignerIds]);
   const reportSummary = useMemo(() => buildReportSummary(tasksForWeek, designerMap), [tasksForWeek, designerMap]);
 
   const handleExportPdf = useCallback(async () => {
@@ -198,7 +206,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
 
     const head = [['Título', 'Artista', 'Solicitante', 'Tag', 'Data', 'Status']];
 
-    for (const group of tasksByDesigner) {
+    for (const group of tasksByDesignerWithTotal) {
       if (y > 250) {
         doc.addPage();
         y = 20;
@@ -206,7 +214,15 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.text(`Design: ${group.designerName}`, margin, y);
-      y += 6;
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      if (group.totalValue !== null) {
+        doc.text(`Valor total (semana): ${formatCurrency(group.totalValue)}`, margin, y);
+      } else {
+        doc.text('Fixo (não entra no cálculo financeiro)', margin, y);
+      }
+      y += 7;
 
       const body = group.tasks.map(t => [
         getTituloFromDescription(t.description).slice(0, 35),
@@ -261,7 +277,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
     }
 
     doc.save(`relatorio-${selectedWeekKey}.pdf`);
-  }, [weekLabel, selectedWeekKey, tasksForWeek, tasksByDesigner, reportSummary]);
+  }, [weekLabel, selectedWeekKey, tasksForWeek, tasksByDesignerWithTotal, reportSummary]);
 
   return (
     <div className="min-h-0 flex flex-col">
@@ -349,7 +365,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
 
               {tasksForWeek.length > 0 ? (
                 <>
-                  {tasksByDesigner.map(({ designerName, tasks: designerTasks }) => (
+                  {tasksByDesignerWithTotal.map(({ designerName, tasks: designerTasks, totalValue }) => (
                     <div
                       key={designerName}
                       className="rounded-2xl border border-base-300/50 overflow-hidden bg-base-200/30"
@@ -358,6 +374,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ loggedInUser, tasks = [], des
                         <h3 className="text-base font-bold text-base-content">Design: {designerName}</h3>
                         <p className="text-xs text-base-content-secondary mt-0.5">
                           {designerTasks.length} demanda{designerTasks.length !== 1 ? 's' : ''} nesta semana
+                          {totalValue !== null && (
+                            <span className="ml-2 font-semibold text-base-content">
+                              · Valor total: {formatCurrency(totalValue)}
+                            </span>
+                          )}
+                          {totalValue === null && (
+                            <span className="ml-2 text-base-content-secondary">· Fixo (não entra no cálculo financeiro)</span>
+                          )}
                         </p>
                       </div>
                       <div className="overflow-x-auto">

@@ -83,8 +83,11 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
     });
   }, [fixedDesigners, tasks, advances, monthRange]);
 
+  // Total de produção do mês: apenas freelancers (demandas de fixos ex.: Rafael e Marlon não entram na parte financeira)
+  const freelancerIds = useMemo(() => new Set(freelancers.map(d => d.id)), [freelancers]);
   const monthlyTasksTotal = tasks
     .filter(task => {
+      if (!freelancerIds.has(task.designer_id)) return false; // exclui demandas de fixos
       const created = new Date(task.created_at);
       return created >= monthRange.start && created <= monthRange.end;
     })

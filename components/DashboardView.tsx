@@ -517,9 +517,22 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                         </tbody>
                     </table>
                 </div>
-                <p className="mt-4 text-xs text-base-content-secondary leading-relaxed">
-                    Observação: materiais reprovados serão pagos com <span className="font-semibold">30% do valor total da demanda</span>.
-                </p>
+                <div className="mt-5 p-4 rounded-xl border-2 border-amber-500/30 bg-amber-500/5 flex flex-wrap items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center ring-1 ring-amber-500/30">
+                            <span className="text-amber-500 font-bold text-sm">30%</span>
+                        </div>
+                        <div>
+                            <p className="font-semibold text-base-content">Materiais reprovados</p>
+                            <p className="text-sm text-base-content-secondary">Demandas reprovadas na aprovação serão pagas com <strong className="text-amber-600 dark:text-amber-400">30% do valor total da demanda</strong>.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25">
+                            Regra de pagamento
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     )

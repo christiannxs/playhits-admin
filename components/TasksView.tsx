@@ -13,8 +13,11 @@ const ARTISTAS_SELECIONAVEIS = [
 ] as const;
 
 const SOLICITANTES_SELECIONAVEIS = [
-  'Jully Morais', 'Livia Xavier', 'Pâmela Emilly', 'Pietra Carvalho', 'Rhuan Coliver', 'Suyanne Almeida',
+  'Christian Rodrigues', 'Jully Morais', 'Livia Xavier', 'Pâmela Emilly', 'Pietra Carvalho', 'Rhuan Coliver', 'Suyanne Almeida',
 ] as const;
+
+/** Solicitante fixo para Plantão Final de Semana. */
+const SOLICITANTE_PLANTAO_FDS = 'Christian Rodrigues';
 
 interface NewDemandRow {
   id: string;
@@ -147,6 +150,11 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
   };
   const [formData, setFormData] = useState<Omit<Task, 'id' | 'created_at' | 'value'> & { approval_status?: Task['approval_status'] }>(initialFormState);
 
+  /** 'single' = uma demanda (ex.: plantão FDS, sem artista/título/solicitante); 'batch' = várias em lote */
+  const [newDemandModalMode, setNewDemandModalMode] = useState<'single' | 'batch' | null>(null);
+  /** Apenas para Plantão Final de Semana no modo "Uma demanda": sábado e domingo (YYYY-MM-DD). */
+  const [plantaoSabado, setPlantaoSabado] = useState('');
+  const [plantaoDomingo, setPlantaoDomingo] = useState('');
   const [newDemandForm, setNewDemandForm] = useState<NewDemandRow>(() => initialNewDemandRow());
   const [newDemandLines, setNewDemandLines] = useState<NewDemandRow[]>([]);
   const [isSubmittingNewDemands, setIsSubmittingNewDemands] = useState(false);
@@ -190,13 +198,20 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
 
   const openAddModal = () => {
     setEditingTask(null);
+    setNewDemandModalMode(null);
+    setPlantaoSabado('');
+    setPlantaoDomingo('');
     setNewDemandForm(initialNewDemandRow());
     setNewDemandLines([]);
+    setFormData(initialFormState);
     setIsModalOpen(true);
   };
 
+  const isPlantaoFDS = newDemandForm.tag === 'Plantão Final de Semana';
   const addNewDemandLine = () => {
-    if (!newDemandForm.titulo.trim() || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda) return;
+    const hasRequired = newDemandForm.design && newDemandForm.tag && newDemandForm.dataDemanda;
+    const hasTituloOrPlantao = newDemandForm.titulo.trim() || isPlantaoFDS;
+    if (!hasRequired || !hasTituloOrPlantao) return;
     const qty = Math.max(1, Math.min(100, newDemandForm.quantidade || 1));
     setNewDemandLines((prev) => [...prev, { ...newDemandForm, id: crypto.randomUUID(), quantidade: qty }]);
     setNewDemandForm(initialNewDemandRow());
@@ -241,7 +256,10 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
       if (!designer) continue;
       const dueDate = row.dataDemanda.trim().slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) continue;
-      const description = [row.titulo.trim(), row.solicitante ? `Solicitante: ${row.solicitante}` : ''].filter(Boolean).join(' | ') || '-';
+      const isRowPlantao = row.tag === 'Plantão Final de Semana';
+      const description = isRowPlantao
+        ? (row.titulo.trim() ? row.titulo.trim() + ' | ' : '') + 'Plantão Final de Semana | Solicitante: ' + SOLICITANTE_PLANTAO_FDS
+        : [row.titulo.trim(), row.solicitante ? `Solicitante: ${row.solicitante}` : ''].filter(Boolean).join(' | ') || '-';
       const taskPayload: Omit<Task, 'id' | 'created_at' | 'value'> = {
         designer_id: designer.id,
         media_type: row.tag,
@@ -266,6 +284,60 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const isPlantaoFDSSingle = formData.media_type === 'Plantão Final de Semana' && !editingTask;
+    const useTwoDates = isPlantaoFDSSingle && plantaoSabado && plantaoDomingo;
+
+    if (editingTask) {
+      if (!formData.designer_id || !formData.media_type || !formData.due_date) return;
+      const payload = {
+        ...formData,
+        artist: formData.artist || '-',
+        social_media: formData.social_media || '-',
+        description: formData.description ?? '-',
+      };
+      onUpdateTask(editingTask.id, {
+        ...payload,
+        value: MEDIA_PRICES[formData.media_type]?.price ?? 0,
+        approval_status: formData.approval_status ?? 'approved',
+      });
+      closeModal();
+      return;
+    }
+
+    if (useTwoDates) {
+      if (!formData.designer_id || !formData.media_type) return;
+      // Uma única demanda para o final de semana (sáb + dom), data de referência = sábado
+      const descriptionWithDates = `Plantão Final de Semana (${formatDate(plantaoSabado)} e ${formatDate(plantaoDomingo)}) | Solicitante: ${SOLICITANTE_PLANTAO_FDS}`;
+      const payload: Omit<Task, 'id' | 'created_at' | 'value'> = {
+        designer_id: formData.designer_id,
+        media_type: formData.media_type,
+        due_date: plantaoSabado,
+        artist: '-',
+        social_media: '-',
+        description: descriptionWithDates,
+        approval_status: formData.approval_status ?? 'approved',
+      };
+      if (isDirector && filterDesigner !== 'all' && filterDesigner !== formData.designer_id) {
+        setFilterDesigner(formData.designer_id);
+      }
+      const weekRange = getWeekRange(new Date(plantaoSabado + 'T12:00:00.000-03:00'));
+      if (startDate && endDate) {
+        if (plantaoSabado < startDate || plantaoDomingo > endDate) {
+          setStartDate(toLocalDateString(weekRange.start));
+          setEndDate(toLocalDateString(weekRange.end));
+        }
+      } else {
+        setStartDate(toLocalDateString(weekRange.start));
+        setEndDate(toLocalDateString(weekRange.end));
+      }
+      setIsSubmitting(true);
+      const success = await onAddTask(payload);
+      setIsSubmitting(false);
+      if (success) closeModal();
+      return;
+    }
+
     if (!formData.designer_id || !formData.media_type || !formData.due_date) return;
 
     const payload = {
@@ -282,7 +354,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
     const dueDateStr = payload.due_date;
     if (startDate && endDate) {
       if (dueDateStr < startDate || dueDateStr > endDate) {
-        // Navega para a semana da demanda (sábado a sexta), em vez de expandir o intervalo
         const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
         setStartDate(toLocalDateString(weekRange.start));
         setEndDate(toLocalDateString(weekRange.end));
@@ -291,16 +362,6 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
       const weekRange = getWeekRange(new Date(dueDateStr + 'T12:00:00.000-03:00'));
       setStartDate(toLocalDateString(weekRange.start));
       setEndDate(toLocalDateString(weekRange.end));
-    }
-
-    if (editingTask) {
-      onUpdateTask(editingTask.id, {
-        ...payload,
-        value: MEDIA_PRICES[formData.media_type]?.price ?? 0,
-        approval_status: formData.approval_status ?? 'approved',
-      });
-      closeModal();
-      return;
     }
 
     setIsSubmitting(true);
@@ -471,7 +532,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
         isOpen={isModalOpen}
         onClose={closeModal}
         title={editingTask ? 'Editar Demanda' : 'Nova Demanda'}
-        contentClassName={!editingTask ? 'max-w-4xl' : undefined}
+        contentClassName={!editingTask && newDemandModalMode !== 'single' ? 'max-w-4xl' : undefined}
       >
         {editingTask ? (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -514,8 +575,120 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
               </button>
             </div>
           </form>
+        ) : newDemandModalMode === null ? (
+          <div className="space-y-6 py-2">
+            <p className="text-sm text-base-content-secondary">
+              Escolha como deseja adicionar a(s) demanda(s):
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setNewDemandModalMode('single')}
+                className="p-5 rounded-2xl border-2 border-base-300 bg-base-200/50 hover:border-brand-primary hover:bg-brand-primary/10 transition-smooth text-left"
+              >
+                <span className="font-semibold text-base-content block mb-1">Uma demanda</span>
+                <span className="text-sm text-base-content-secondary">
+                  Ideal para <strong>Plantão Final de Semana</strong> (sábado/domingo): só designer, tipo e data. Sem artista, título ou solicitante.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewDemandModalMode('batch')}
+                className="p-5 rounded-2xl border-2 border-base-300 bg-base-200/50 hover:border-brand-primary hover:bg-brand-primary/10 transition-smooth text-left"
+              >
+                <span className="font-semibold text-base-content block mb-1">Várias demandas (lote)</span>
+                <span className="text-sm text-base-content-secondary">
+                  Várias linhas com título, artista, designer, solicitante e tipo de mídia. Para Plantão FDS o título/artista/solicitante são opcionais.
+                </span>
+              </button>
+            </div>
+          </div>
+        ) : newDemandModalMode === 'single' ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isDirector && (
+              <div>
+                <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
+                <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
+                  <option value="">Selecione um designer</option>
+                  {assignableDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-base-content-secondary mb-1">Tipo de Mídia</label>
+              <select value={formData.media_type} onChange={e => setFormData({ ...formData, media_type: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
+                <option value="">Selecione um tipo</option>
+                {Object.entries(MEDIA_PRICES).map(([key, media]) => <option key={key} value={key}>{media.name} - {formatCurrency(media.price)}</option>)}
+              </select>
+              {formData.media_type === 'Plantão Final de Semana' && (
+                <p className="text-xs text-base-content-secondary mt-1.5">Informe as datas de sábado e domingo para criar as duas demandas.</p>
+              )}
+            </div>
+            {formData.media_type === 'Plantão Final de Semana' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1">Data sábado</label>
+                  <input
+                    type="date"
+                    value={plantaoSabado}
+                    onChange={e => setPlantaoSabado(e.target.value)}
+                    className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
+                    required={formData.media_type === 'Plantão Final de Semana'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1">Data domingo</label>
+                  <input
+                    type="date"
+                    value={plantaoDomingo}
+                    onChange={e => setPlantaoDomingo(e.target.value)}
+                    className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
+                    required={formData.media_type === 'Plantão Final de Semana'}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-base-content-secondary mb-1">Data de Entrega</label>
+                <input type="date" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required />
+              </div>
+            )}
+            {isDirector && (
+              <div>
+                <label className="block text-sm font-medium text-base-content-secondary mb-1">Status da demanda</label>
+                <select
+                  value={formData.approval_status ?? 'approved'}
+                  onChange={e => setFormData({ ...formData, approval_status: e.target.value as TaskApprovalStatus })}
+                  className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none"
+                >
+                  <option value="approved">Aprovada (valor integral)</option>
+                  <option value="rejected">Reprovada (paga 30%)</option>
+                </select>
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-base-100 pb-2">
+              <button type="button" onClick={() => setNewDemandModalMode(null)} className="px-4 py-2.5 rounded-xl font-semibold border border-base-300 text-base-content hover:bg-base-200 transition-smooth">
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  (formData.media_type === 'Plantão Final de Semana' && (!plantaoSabado || !plantaoDomingo))
+                }
+                className="bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Salvando...' : formData.media_type === 'Plantão Final de Semana' && plantaoSabado && plantaoDomingo ? 'Criar demanda (sáb + dom)' : 'Criar demanda'}
+              </button>
+            </div>
+          </form>
         ) : (
           <>
+            <div className="flex items-center justify-between mb-5">
+              <button type="button" onClick={() => setNewDemandModalMode(null)} className="text-sm text-base-content-secondary hover:text-brand-primary transition-smooth">
+                ← Voltar
+              </button>
+            </div>
             <p className="text-sm text-base-content-secondary mb-5">
               Preencha os campos abaixo e use <strong>Adicionar linha</strong> para incluir cada item. Depois, crie todas as demandas de uma vez.
             </p>
@@ -577,7 +750,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                   <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Tag (tipo de mídia)</label>
                   <select
                     value={newDemandForm.tag}
-                    onChange={e => setNewDemandForm(f => ({ ...f, tag: e.target.value }))}
+                    onChange={e => {
+                      const tag = e.target.value;
+                      setNewDemandForm(f => ({
+                        ...f,
+                        tag,
+                        solicitante: tag === 'Plantão Final de Semana' ? SOLICITANTE_PLANTAO_FDS : f.solicitante,
+                      }));
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                     required
                   >
@@ -586,6 +766,9 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                       <option key={key} value={key}>{key}</option>
                     ))}
                   </select>
+                  {isPlantaoFDS && (
+                    <p className="text-xs text-base-content-secondary mt-1.5">Título, artista e solicitante são opcionais para plantão (sáb/dom).</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Data da demanda</label>
@@ -627,7 +810,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                 <button
                   type="button"
                   onClick={addNewDemandLine}
-                  disabled={!newDemandForm.titulo.trim() || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda}
+                  disabled={(!newDemandForm.titulo.trim() && !isPlantaoFDS) || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold bg-brand-primary text-white hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-smooth shadow-brand"
                 >
                   <PlusIcon className="h-5 w-5" />
@@ -670,7 +853,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                         const isRejected = (row.approval_status ?? 'approved') === 'rejected';
                         return (
                           <tr key={row.id} className="border-b border-base-300/30 last:border-b-0 hover:bg-base-200/30 transition-colors">
-                            <td className="px-4 py-3 text-base-content font-medium">{row.titulo}</td>
+                            <td className="px-4 py-3 text-base-content font-medium">{row.tag === 'Plantão Final de Semana' && !row.titulo.trim() ? 'Plantão Final de Semana' : row.titulo || '—'}</td>
                             <td className="px-4 py-3 text-base-content-secondary">{row.artista || '—'}</td>
                             <td className="px-4 py-3 text-base-content-secondary">{row.design || '—'}</td>
                             <td className="px-4 py-3 text-base-content-secondary">{row.tag || '—'}</td>
