@@ -30,10 +30,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-base-200 relative overflow-hidden">
-      <main className="flex-1 flex items-center justify-center p-6 relative z-10 animate-fade-in">
-        <div className="w-full max-w-md p-8 sm:p-10 space-y-8 bg-base-100/98 backdrop-blur-md rounded-3xl shadow-card border border-base-300/40 hover:shadow-card-hover transition-smooth">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="p-4 rounded-2xl bg-base-200/80 border border-base-300/30 shadow-inner-soft">
+      <main className="flex-1 flex items-center justify-center p-6 sm:p-8 relative z-10 animate-fade-in">
+        <div className="w-full max-w-md p-8 sm:p-10 space-y-8 section-card bg-base-100/98 backdrop-blur-md rounded-3xl transition-smooth">
+          <div className="flex flex-col items-center space-y-5">
+            <div className="p-5 rounded-2xl bg-base-200/80 border border-base-300/40 shadow-inner-soft">
               <img src={logophd} alt="Play Hits Gerenciamento" className="h-28 w-auto object-contain" />
             </div>
             <p className="text-base-content-secondary text-sm font-medium">Acesse o painel de controle</p>
@@ -82,8 +82,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
           </form>
         </div>
       </main>
-      <footer className="relative z-10 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
-        aplicativo desenvolvido por Christian Rodrigues · todos direitos reservados · phd marketing inteligente
+      <footer className="relative z-10 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-widest px-4">
+        Desenvolvido por Christian Rodrigues · PhD Marketing Inteligente
       </footer>
     </div>
   );

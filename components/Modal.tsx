@@ -57,13 +57,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, content
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-base-content-secondary hover:text-base-content hover:bg-base-200 transition-smooth text-xl leading-none"
+            className="p-2.5 rounded-xl text-base-content-secondary hover:text-base-content hover:bg-base-200 transition-smooth text-xl leading-none"
             aria-label="Fechar modal"
           >
             &times;
           </button>
         </div>
-        <div className="overflow-y-auto custom-scrollbar px-6 pb-6 flex-1">
+        <div className="overflow-y-auto custom-scrollbar px-6 py-5 pb-6 flex-1">
           {children}
         </div>
       </div>

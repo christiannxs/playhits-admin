@@ -13,7 +13,7 @@ interface DashboardViewProps {
 }
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
-    <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 flex items-center gap-4 h-full hover:shadow-card-hover hover:border-base-300/50 transition-smooth">
+    <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl flex items-center gap-4 h-full transition-smooth">
         <div className="bg-brand-primary/12 p-3.5 rounded-xl flex-shrink-0 text-brand-primary ring-1 ring-brand-primary/10">
             {icon}
         </div>
@@ -157,7 +157,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         </div>
 
         {isDirector && (
-          <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+          <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
@@ -235,7 +235,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
   const renderDesignerDetail = () => {
     if (!selectedDesignerData) {
     return (
-      <div className="bg-base-100/90 p-8 rounded-2xl shadow-card border border-base-300/40 text-center">
+      <div className="section-card bg-base-100/90 p-8 rounded-2xl text-center">
         <p className="text-base-content-secondary">Designer não encontrado. Selecione outro na lista.</p>
       </div>
     );
@@ -247,14 +247,14 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
       <div className="space-y-8" id="print-area">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Object.entries(stats).map(([key, value]) => (
-                <div key={key} className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 transition-smooth hover:shadow-card-hover">
+                <div key={key} className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl transition-smooth">
                     <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wide">{key}</p>
                     <p className="text-xl sm:text-2xl font-bold text-base-content mt-0.5">{value}</p>
                 </div>
             ))}
         </div>
 
-        <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+        <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
           <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
             <CheckCircleIcon className="h-5 w-5 text-brand-primary" />
             Demandas Recentes ({periodLabel})
@@ -284,7 +284,7 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
         </div>
 
         {paymentHistory.length > 0 && (
-             <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+             <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
                 <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
                     <ClockIcon className="h-5 w-5 text-brand-primary" />
                     Histórico de Pagamentos Semanais
@@ -323,13 +323,11 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-8">
-      <header className="pb-2 border-b border-base-300/40">
+      <header className="page-header">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-base-content">
-              {pageTitle}
-            </h2>
-            <p className="text-sm text-base-content-secondary mt-1">{pageSubtitle}</p>
+            <h2 className="page-header-title">{pageTitle}</h2>
+            <p className="page-header-subtitle">{pageSubtitle}</p>
           </div>
           <div className="flex items-center gap-3 no-print flex-shrink-0">
             <select
@@ -398,15 +396,15 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
 
     return (
         <div className="space-y-8">
-            <header className="pb-2 border-b border-base-300/40">
-                <h2 className="text-2xl sm:text-3xl font-bold text-base-content">Olá, {loggedInUser.name.split(' ')[0]}!</h2>
-                <p className="text-sm text-base-content-secondary mt-1">Seu resumo da semana e histórico de pagamentos</p>
+            <header className="page-header">
+                <h2 className="page-header-title">Olá, {loggedInUser.name.split(' ')[0]}!</h2>
+                <p className="page-header-subtitle">Seu resumo da semana e histórico de pagamentos</p>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {paymentStatCard}
                 {completedTasksStatCard}
-                <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40 h-full transition-smooth hover:shadow-card-hover">
+                <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl h-full transition-smooth">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="bg-blue-500/15 p-2.5 rounded-xl ring-1 ring-blue-500/20">
                              <CheckCircleIcon className="text-blue-400 h-5 w-5"/>
@@ -429,7 +427,7 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
             </div>
 
             {paymentHistory.length > 0 && (
-                <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+                <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
                     <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
                         <ClockIcon className="h-5 w-5 text-brand-primary" />
                         Histórico de Pagamentos Semanais
@@ -459,7 +457,7 @@ const DesignerDashboard: React.FC<Pick<DashboardViewProps, 'tasks' | 'loggedInUs
                 </div>
             )}
 
-            <div className="bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl shadow-card border border-base-300/40">
+            <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
                 <h3 className="text-lg font-bold mb-4 text-base-content flex items-center gap-2">
                     <MoneyIcon className="h-5 w-5 text-brand-primary" />
                     Proposta P/ Desing 2026 (PHD)

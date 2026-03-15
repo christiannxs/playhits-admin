@@ -156,3 +156,27 @@ export const CloudArrowDownIcon: React.FC<IconProps> = ({ className = "h-5 w-5" 
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9.75v6.75m0 0l-3-3m3 3l3-3m-8.25 6a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
   </svg>
 );
+
+export const Bars3Icon: React.FC<IconProps> = ({ className = "h-6 w-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+  </svg>
+);
+
+export const XMarkIcon: React.FC<IconProps> = ({ className = "h-6 w-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+export const ChevronLeftIcon: React.FC<IconProps> = ({ className = "h-5 w-5" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+export const ChevronRightIcon: React.FC<IconProps> = ({ className = "h-5 w-5" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);

@@ -76,7 +76,7 @@ const DesignerCard: React.FC<{
     const balanceColor = balance < 0 ? 'text-red-400' : 'text-green-400';
 
     return (
-        <div className="bg-base-100/90 backdrop-blur-sm p-5 rounded-2xl shadow-card border border-base-300/40 flex flex-col justify-between h-full hover:shadow-card-hover hover:border-base-300/50 transition-smooth">
+        <div className="section-card bg-base-100/90 backdrop-blur-sm p-5 rounded-2xl flex flex-col justify-between h-full transition-smooth">
             <div>
                 <h4 className="text-lg font-bold text-base-content">{designer.name}</h4>
                 <p className="text-sm text-base-content-secondary">{designer.role}</p>
@@ -319,14 +319,14 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
 
   return (
     <div className="space-y-6">
-      <header className="pb-2 border-b border-base-300/40">
+      <header className="page-header">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-2">
+            <h2 className="page-header-title flex items-center gap-2">
               <UsersIcon className="h-8 w-8 text-brand-primary hidden sm:block" />
               Equipe
             </h2>
-            <p className="text-sm text-base-content-secondary mt-1">Designers, freelancers e equipe fixa</p>
+            <p className="page-header-subtitle">Designers, freelancers e equipe fixa</p>
           </div>
           <button onClick={openAddModal} className="flex items-center bg-brand-primary text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-brand-secondary transition-smooth shadow-brand flex-shrink-0">
             <PlusIcon />

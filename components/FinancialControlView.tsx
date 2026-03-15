@@ -18,7 +18,6 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
   const weekRange = useMemo(() => getWeekRange(date), [date]);
   const monthRange = useMemo(() => getMonthRange(date), [date]);
 
-  const fixedDesigners = designers.filter(d => d.type === DesignerType.Fixed);
   const freelancers = designers.filter(d => d.type !== DesignerType.Fixed);
 
   const financialControlAllTime = useMemo(() => {
@@ -65,25 +64,7 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
     });
   }, [freelancers, tasks, advances, weekRange]);
 
-  const fixedReports = useMemo(() => {
-    return fixedDesigners.map(designer => {
-      const completedTasks = tasks.filter(task =>
-        task.designer_id === designer.id &&
-        new Date(task.created_at) >= monthRange.start &&
-        new Date(task.created_at) <= monthRange.end
-      );
-      const advancesInPeriod = advances.filter(adv =>
-        adv.designer_id === designer.id &&
-        new Date(adv.date) >= monthRange.start &&
-        new Date(adv.date) <= monthRange.end
-      );
-      const advancesTotal = advancesInPeriod.reduce((sum, adv) => sum + adv.amount, 0);
-      const finalSalary = (designer.salary || 0) - advancesTotal;
-      return { designer, completedTasks, finalSalary, advancesTotal, salary: designer.salary || 0 };
-    });
-  }, [fixedDesigners, tasks, advances, monthRange]);
-
-  // Total de produção do mês: apenas freelancers (demandas de fixos ex.: Rafael e Marlon não entram na parte financeira)
+  // Total de produção do mês: apenas freelancers
   const freelancerIds = useMemo(() => new Set(freelancers.map(d => d.id)), [freelancers]);
   const monthlyTasksTotal = tasks
     .filter(task => {
@@ -100,8 +81,7 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
     })
     .reduce((sum, adv) => sum + adv.amount, 0);
 
-  const monthlyFixedTotal = fixedDesigners.reduce((sum, d) => sum + (d.salary || 0), 0);
-  const grandTotal = monthlyFixedTotal + monthlyTasksTotal - monthlyAdvancesTotal;
+  const grandTotal = monthlyTasksTotal - monthlyAdvancesTotal;
 
   const handleCopyReport = () => {
     let reportText = '';
@@ -135,23 +115,10 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
       reportText += 'Nenhum pagamento para freelancers neste período.\n\n';
     }
 
-    reportText += `RELATÓRIO MENSAL - EQUIPE FIXA\n`;
-    reportText += `Mês: ${date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}\n`;
-    reportText += '====================\n\n';
-    fixedReports.forEach(report => {
-      reportText += `${report.designer.name}\n`;
-      reportText += `Salário Base: ${formatCurrency(report.salary)}\n`;
-      if (report.advancesTotal > 0) {
-        reportText += `Adiantamentos: -${formatCurrency(report.advancesTotal)}\n`;
-      }
-      reportText += `--------------------\n`;
-      reportText += `Pagamento Final: ${formatCurrency(report.finalSalary)}\n\n`;
-    });
-
     reportText += `RELATÓRIO MENSAL CONSOLIDADO\n`;
     reportText += `Mês: ${date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}\n`;
     reportText += '====================\n';
-    reportText += `Custo Total (Salários + Demandas): ${formatCurrency(monthlyFixedTotal + monthlyTasksTotal)}\n`;
+    reportText += `Custo Total (Demandas): ${formatCurrency(monthlyTasksTotal)}\n`;
     reportText += `Total Adiantamentos (Vales): -${formatCurrency(monthlyAdvancesTotal)}\n`;
     reportText += `--------------------\n`;
     reportText += `Pagamento Total do Mês: ${formatCurrency(grandTotal)}\n`;
@@ -175,17 +142,17 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
 
   return (
     <div className="min-h-0 flex flex-col">
-      <header className="flex-shrink-0 pb-6 no-print">
+      <header className="page-header flex-shrink-0 no-print">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-3">
+            <h1 className="page-header-title flex items-center gap-3">
               <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20">
                 <CashIcon className="h-6 w-6" />
               </span>
               Controle Financeiro
             </h1>
-            <p className="text-sm text-base-content-secondary mt-2 max-w-md">
-              Pagamento semanal (freelancers) e mensal (equipe fixa). Histórico desde o início do sistema.
+            <p className="page-header-subtitle max-w-md">
+              Pagamento semanal (freelancers). Histórico desde o início do sistema.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -211,7 +178,7 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
 
       <div id="print-area" className="flex-1 space-y-8 overflow-auto">
 
-        <section className="bg-base-100 rounded-2xl border border-base-300/50 overflow-hidden shadow-sm">
+        <section className="section-card bg-base-100 rounded-2xl overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 bg-base-200/40">
             <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20">
               <CashIcon className="h-5 w-5" />
@@ -271,7 +238,7 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
             {freelancerReports.filter(r => r.totalPayment !== 0 || r.completedTasks.length > 0 || r.advancesInPeriod.length > 0).length > 0 ? (
               freelancerReports.map(({ freelancer, completedTasks, advancesInPeriod, totalPayment, taskTotal, advancesTotal }) =>
                 (taskTotal > 0 || advancesTotal > 0) && (
-                  <article key={freelancer.id} className="bg-base-100 rounded-2xl border border-base-300/50 overflow-hidden shadow-sm flex flex-col hover:border-base-300 transition-colors">
+                  <article key={freelancer.id} className="section-card bg-base-100 rounded-2xl overflow-hidden flex flex-col transition-smooth">
                     <div className="px-4 py-3 border-b border-base-300/50 bg-base-200/40 flex justify-between items-start gap-2">
                       <div className="min-w-0">
                         <h3 className="font-bold text-base-content truncate">{freelancer.name}</h3>
@@ -345,62 +312,7 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
           </div>
         </section>
 
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500/20">
-              <UserIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-base-content">Equipe fixa — Mensal</h2>
-              <p className="text-xs text-base-content-secondary">{date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {fixedReports.map(({ designer, completedTasks, finalSalary, advancesTotal, salary }) => (
-              <article key={designer.id} className="bg-base-100 rounded-2xl border border-base-300/50 overflow-hidden shadow-sm flex flex-col hover:border-base-300 transition-colors">
-                <div className="px-4 py-3 border-b border-base-300/50 bg-base-200/40 flex justify-between items-start gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-base-content truncate">{designer.name}</h3>
-                    <span className="text-xs text-base-content-secondary">Fixo</span>
-                  </div>
-                  <span className="text-lg font-bold text-brand-primary tabular-nums shrink-0">{formatCurrency(finalSalary)}</span>
-                </div>
-                <div className="flex-1 p-4 space-y-4">
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-base-200/50 text-sm">
-                    <span className="text-base-content-secondary">Demandas no mês</span>
-                    <span className="font-bold text-base-content tabular-nums">{completedTasks.length}</span>
-                  </div>
-                  {advancesTotal > 0 ? (
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-error/5 border border-error/10">
-                      <span className="text-sm text-base-content-secondary">Vales</span>
-                      <span className="font-bold text-error tabular-nums">−{formatCurrency(advancesTotal)}</span>
-                    </div>
-                  ) : (
-                    <p className="text-center text-sm text-base-content-secondary py-2">Sem adiantamentos este mês.</p>
-                  )}
-                </div>
-                <div className="px-4 py-3 border-t border-base-300/50 bg-base-200/30 text-sm space-y-1">
-                  <div className="flex justify-between text-base-content-secondary">
-                    <span>Salário base</span>
-                    <span className="tabular-nums">{formatCurrency(salary)}</span>
-                  </div>
-                  {advancesTotal > 0 && (
-                    <div className="flex justify-between text-error/90">
-                      <span>Vales</span>
-                      <span className="tabular-nums">−{formatCurrency(advancesTotal)}</span>
-                    </div>
-                  )}
-                  <div className="pt-2 mt-1 border-t border-base-300/50 flex justify-between font-bold text-base-content">
-                    <span>Total a receber</span>
-                    <span className="text-brand-primary tabular-nums">{formatCurrency(finalSalary)}</span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-gradient-to-br from-base-200 to-base-300/30 rounded-2xl border border-base-300/50 overflow-hidden">
+        <section className="section-card bg-gradient-to-br from-base-200 to-base-300/30 rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-base-300/50">
             <h2 className="text-lg font-bold text-base-content">Resumo do mês</h2>
             <p className="text-xs text-base-content-secondary">{date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
@@ -408,8 +320,8 @@ const FinancialControlView: React.FC<FinancialControlViewProps> = ({ designers, 
           <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div className="flex flex-col gap-1 p-4 rounded-xl bg-base-100/80 border border-base-300/30">
               <span className="text-xs font-medium text-base-content-secondary uppercase tracking-wide">Custo total</span>
-              <span className="text-xl font-bold text-base-content tabular-nums">{formatCurrency(monthlyFixedTotal + monthlyTasksTotal)}</span>
-              <span className="text-xs text-base-content-secondary">Fixos + demandas</span>
+              <span className="text-xl font-bold text-base-content tabular-nums">{formatCurrency(monthlyTasksTotal)}</span>
+              <span className="text-xs text-base-content-secondary">Demandas</span>
             </div>
             <div className="flex flex-col gap-1 p-4 rounded-xl bg-base-100/80 border border-base-300/30">
               <span className="text-xs font-medium text-base-content-secondary uppercase tracking-wide">Vales</span>

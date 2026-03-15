@@ -122,12 +122,13 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 gap-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 gap-6 px-4">
         <div
-          className="w-12 h-12 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow"
+          className="w-14 h-14 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow"
           aria-hidden
         />
-        <p className="text-base-content-secondary font-medium">Carregando...</p>
+        <p className="text-base-content-secondary font-medium text-lg">Carregando...</p>
+        <p className="text-base-content-secondary/70 text-sm">Conectando ao painel</p>
       </div>
     );
   }
@@ -145,16 +146,17 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-base-200">
       <Header
         activeView={activeView}
         setActiveView={setActiveView}
         onLogout={handleLogout}
         loggedInUser={loggedInUser}
+        currentPageTitle={viewNames[activeView]}
       />
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="main-content-scroll flex-1 p-6 sm:p-8 lg:p-10 overflow-y-auto">
-          <div className="max-w-7xl mx-auto w-full">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        <main className="main-content-scroll flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10 overflow-y-auto">
+          <div className="max-w-5xl mx-auto w-full">
             {apiError && (
               <div
                 className="bg-red-900/30 border border-red-500/40 text-red-200 p-4 rounded-2xl mb-6 relative shadow-card flex flex-col gap-2"
@@ -180,12 +182,14 @@ const App: React.FC = () => {
               viewName={viewNames[activeView]}
               onReset={() => setActiveView('dashboard')}
             >
-              {renderView()}
+              <div key={activeView} className="animate-fade-in">
+                {renderView()}
+              </div>
             </ViewErrorBoundary>
           </div>
         </main>
-        <footer className="bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-wider">
-          aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
+        <footer className="flex-shrink-0 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-widest px-4">
+          Desenvolvido por Christian Rodrigues · PhD Marketing Inteligente
         </footer>
       </div>
     </div>

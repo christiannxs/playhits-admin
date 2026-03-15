@@ -427,14 +427,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
 
   return (
     <div className="space-y-6">
-      <header className="pb-2 border-b border-base-300/40">
+      <header className="page-header">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-base-content flex items-center gap-2">
+            <h2 className="page-header-title flex items-center gap-2">
               <ClipboardDocumentListIcon className="h-8 w-8 text-brand-primary hidden sm:block" />
               Demandas
             </h2>
-            <p className="text-sm text-base-content-secondary mt-1">
+            <p className="page-header-subtitle">
               {isDirector ? 'Gerencie e filtre demandas por designer e período' : 'Suas demandas atribuídas'}
             </p>
           </div>
@@ -453,14 +453,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
       </header>
 
       {!isDirector && (
-          <div className="bg-base-100/90 backdrop-blur-sm p-4 rounded-xl border border-base-300/40">
+          <div className="section-card bg-base-100/90 backdrop-blur-sm p-4 rounded-xl">
               <p className="text-base-content-secondary text-sm">
                   A gestão de demandas é realizada exclusivamente pelo Diretor de Arte. Você pode visualizar suas demandas atribuídas abaixo.
               </p>
           </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 bg-base-100/90 backdrop-blur-sm p-4 rounded-2xl shadow-card border border-base-300/40">
+      <div className="flex flex-wrap items-center gap-4 section-card bg-base-100/90 backdrop-blur-sm p-4 rounded-2xl">
         <span className="font-semibold text-base-content-secondary text-sm uppercase tracking-wide">Filtros</span>
         {isDirector && (
           <select value={filterDesigner} onChange={e => setFilterDesigner(e.target.value)} className="px-3 py-2 rounded-xl bg-base-200 border border-base-300 text-base-content focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none text-sm">
@@ -502,7 +502,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
           Object.keys(groupedTasks).map((weekKey) => {
             const group = groupedTasks[weekKey];
             return (
-              <details key={weekKey} className="bg-base-100/90 backdrop-blur-sm rounded-2xl shadow-card border border-base-300/40 overflow-hidden group" open>
+              <details key={weekKey} className="section-card bg-base-100/90 backdrop-blur-sm rounded-2xl overflow-hidden group" open>
                 <summary className="p-4 font-bold text-base cursor-pointer hover:bg-base-200/40 list-none flex items-center gap-2 transition-smooth rounded-t-2xl">
                   <ClockIcon className="h-5 w-5 text-brand-primary flex-shrink-0" />
                   {weekKey === 'sem-data'
