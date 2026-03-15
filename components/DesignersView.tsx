@@ -23,7 +23,7 @@ const DesignerCard: React.FC<{
     advances: Advance[];
     onEdit: (designer: Designer) => void; 
     onManageAdvances: (designer: Designer) => void;
-    onDelete: (designerId: string) => void;
+    onDelete: (designer: Designer) => void;
 }> = ({ designer, tasks, advances, onEdit, onManageAdvances, onDelete }) => {
     const today = new Date();
     let balance = 0;
@@ -95,11 +95,16 @@ const DesignerCard: React.FC<{
                 </div>
             </div>
 
-            <div className="mt-4 flex justify-between items-center">
-                {designer.type === DesignerType.Fixed
-                    ? <span className="px-3 py-1 text-xs font-semibold text-indigo-300 bg-indigo-500/20 rounded-full">Fixo</span>
-                    : <span className="px-3 py-1 text-xs font-semibold text-teal-300 bg-teal-500/20 rounded-full">Freelancer</span>
-                }
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {designer.type === DesignerType.Fixed
+                        ? <span className="px-3 py-1 text-xs font-semibold text-indigo-300 bg-indigo-500/20 rounded-full">Fixo</span>
+                        : <span className="px-3 py-1 text-xs font-semibold text-teal-300 bg-teal-500/20 rounded-full">Freelancer</span>
+                    }
+                    {designer.type === DesignerType.Fixed && !designer.auth_user_id && (
+                        <span className="px-2 py-0.5 text-xs font-medium text-amber-300 bg-amber-500/20 rounded-full" title="Não acessa o painel; apenas aparece em demandas e relatório">Sem login</span>
+                    )}
+                </div>
                 <div className="flex items-center space-x-1">
                     <button onClick={() => onManageAdvances(designer)} className="p-2 rounded-full text-base-content-secondary hover:bg-base-300 hover:text-base-content transition-colors" title="Gerenciar Vales/Adiantamentos">
                         <CashIcon className="h-5 w-5" />
@@ -107,7 +112,7 @@ const DesignerCard: React.FC<{
                     <button onClick={() => onEdit(designer)} className="p-2 rounded-full text-base-content-secondary hover:bg-base-300 hover:text-base-content transition-colors" title="Editar Designer">
                         <PencilIcon />
                     </button>
-                    <button onClick={() => onDelete(designer.id)} className="p-2 rounded-full text-base-content-secondary hover:bg-red-900/50 hover:text-red-500 transition-colors" title="Remover Designer">
+                    <button onClick={() => onDelete(designer)} className="p-2 rounded-full text-base-content-secondary hover:bg-red-900/50 hover:text-red-500 transition-colors" title="Remover Designer">
                         <TrashIcon />
                     </button>
                 </div>
@@ -304,6 +309,14 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
     ).sort((a,b) => a.name.localeCompare(b.name));
   }, [designers, searchQuery]);
 
+  const handleDeleteDesigner = (designer: Designer) => {
+    const isFixedNoLogin = designer.type === DesignerType.Fixed && !designer.auth_user_id;
+    const msg = isFixedNoLogin
+      ? 'Este designer é fixo e não tem login (apenas para demandas e relatório). Remover mesmo assim?'
+      : 'Tem certeza que deseja remover este designer? Isso removerá o acesso do usuário e todos os dados associados do painel.';
+    if (window.confirm(msg)) onDeleteDesigner(designer.id);
+  };
+
   return (
     <div className="space-y-6">
       <header className="pb-2 border-b border-base-300/40">
@@ -343,7 +356,7 @@ const DesignersView: React.FC<DesignersViewProps> = ({ designers, tasks, onAddDe
                 advances={advances} 
                 onEdit={openEditModal} 
                 onManageAdvances={openAdvanceModal} 
-                onDelete={onDeleteDesigner}
+                onDelete={handleDeleteDesigner}
             />
           ))
         ) : (

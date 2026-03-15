@@ -6,7 +6,8 @@ export enum DesignerType {
 
 export interface Designer {
   id: string; // Primary key from the 'designers' table
-  auth_user_id: string; // Foreign key to auth.users.id
+  /** Null para designers fixos apenas para relatório (sem login no painel). */
+  auth_user_id?: string | null;
   name: string;
   username: string;
   type?: DesignerType;

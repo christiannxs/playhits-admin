@@ -316,7 +316,6 @@ export function useAppData() {
   };
 
   const deleteDesigner = async (designerId: string) => {
-    if (!window.confirm('Tem certeza que deseja remover este designer? Isso removerá o acesso do usuário e todos os dados associados do painel.')) return;
     setApiError(null);
     try {
       const { error } = await supabase.from('designers').delete().eq('id', designerId);

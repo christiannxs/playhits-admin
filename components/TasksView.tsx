@@ -65,7 +65,7 @@ const TaskTable: React.FC<{
                   <th className="p-4 font-semibold text-base-content-secondary">Mídia</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Designer</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Entrega</th>
-                  {isDirector && <th className="p-4 font-semibold text-base-content-secondary">Status</th>}
+                  <th className="p-4 font-semibold text-base-content-secondary">Status</th>
                   <th className="p-4 font-semibold text-base-content-secondary">Valor</th>
                   {isDirector && <th className="p-4 font-semibold text-base-content-secondary">Ações</th>}
               </tr>
@@ -86,13 +86,11 @@ const TaskTable: React.FC<{
                       </td>
                       <td className="p-4 text-base-content-secondary align-top">{designerMap.get(task.designer_id) || 'N/A'}</td>
                       <td className="p-4 text-base-content-secondary align-top">{formatDate(task.due_date)}</td>
-                      {isDirector && (
-                          <td className="p-4 align-top">
-                              <span className={`text-sm font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
-                                {isRejected ? 'Reprovada' : 'Aprovada'}
-                              </span>
-                          </td>
-                      )}
+                      <td className="p-4 align-top">
+                          <span className={`text-sm font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
+                            {isRejected ? 'Reprovada' : 'Aprovada'}
+                          </span>
+                      </td>
                       <td className="p-4 font-semibold text-base-content align-top">
                         {formatCurrency(payable)}
                         {isRejected && <span className="text-xs text-base-content-secondary ml-1">(30%)</span>}
@@ -121,6 +119,11 @@ const TaskTable: React.FC<{
 const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onInsertTasks, onUpdateTask, onDeleteTask, loggedInUser }) => {
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeDesigners = Array.isArray(designers) ? designers : [];
+  /** Designers que podem ser atribuídos a demandas (exclui Diretor e Financeiro). */
+  const assignableDesigners = useMemo(
+    () => safeDesigners.filter(d => d.role !== 'Diretor de Arte' && d.role !== 'Financeiro'),
+    [safeDesigners]
+  );
   const isDirector = loggedInUser?.role === 'Diretor de Arte';
   const filtersStorageKey = `tasks-view-filters-${loggedInUser?.id ?? 'default'}`;
 
@@ -477,7 +480,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                 <label className="block text-sm font-medium text-base-content-secondary mb-1">Designer</label>
                 <select value={formData.designer_id} onChange={e => setFormData({ ...formData, designer_id: e.target.value })} className="w-full p-3 border rounded-xl bg-base-200 border-base-300 focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary outline-none" required>
                   <option value="">Selecione um designer</option>
-                  {safeDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {assignableDesigners.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
             )}
@@ -513,99 +516,105 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
           </form>
         ) : (
           <>
-            <p className="text-xs text-base-content-secondary mb-4">Monte um relatório com título, artista, design, solicitante, tag, data da demanda e quantidade.</p>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
-                <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Título da demanda</label>
+            <p className="text-sm text-base-content-secondary mb-5">
+              Preencha os campos abaixo e use <strong>Adicionar linha</strong> para incluir cada item. Depois, crie todas as demandas de uma vez.
+            </p>
+
+            <section className="space-y-5">
+              <h4 className="text-sm font-semibold text-base-content-secondary uppercase tracking-wide">Dados da linha</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Título da demanda</label>
                   <input
                     type="text"
                     value={newDemandForm.titulo}
                     onChange={e => setNewDemandForm(f => ({ ...f, titulo: e.target.value }))}
                     placeholder="Ex.: Arte agenda Insta"
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Artista</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Artista</label>
                   <select
                     value={newDemandForm.artista}
                     onChange={e => setNewDemandForm(f => ({ ...f, artista: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                   >
-                    <option value="">Selecione o artista</option>
+                    <option value="">Selecione</option>
                     {ARTISTAS_SELECIONAVEIS.map(name => (
                       <option key={name} value={name}>{name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Design</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Design</label>
                   <select
                     value={newDemandForm.design}
                     onChange={e => setNewDemandForm(f => ({ ...f, design: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
+                    required
                   >
-                    <option value="">Selecione o design</option>
-                    {safeDesigners.map(d => (
+                    <option value="">Selecione</option>
+                    {assignableDesigners.map(d => (
                       <option key={d.id} value={d.name}>{d.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Solicitante</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Solicitante</label>
                   <select
                     value={newDemandForm.solicitante}
                     onChange={e => setNewDemandForm(f => ({ ...f, solicitante: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                   >
-                    <option value="">Selecione o solicitante</option>
+                    <option value="">Selecione</option>
                     {SOLICITANTES_SELECIONAVEIS.map(name => (
                       <option key={name} value={name}>{name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Tag</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Tag (tipo de mídia)</label>
                   <select
                     value={newDemandForm.tag}
                     onChange={e => setNewDemandForm(f => ({ ...f, tag: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
+                    required
                   >
-                    <option value="">Selecione...</option>
+                    <option value="">Selecione</option>
                     {Object.keys(MEDIA_PRICES).map(key => (
                       <option key={key} value={key}>{key}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Data da demanda</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Data da demanda</label>
                   <input
                     type="date"
                     value={newDemandForm.dataDemanda}
                     onChange={e => setNewDemandForm(f => ({ ...f, dataDemanda: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-base-content-secondary mb-1">Quantidade</label>
+                  <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Quantidade</label>
                   <input
                     type="number"
                     min={1}
                     max={100}
                     value={newDemandForm.quantidade || ''}
                     onChange={e => setNewDemandForm(f => ({ ...f, quantidade: parseInt(e.target.value, 10) || 1 }))}
-                    placeholder="Ex.: 1"
-                    className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                    placeholder="1"
+                    className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                   />
                 </div>
                 {isDirector && (
                   <div>
-                    <label className="block text-xs font-medium text-base-content-secondary mb-1">Status</label>
+                    <label className="block text-sm font-medium text-base-content-secondary mb-1.5">Status</label>
                     <select
                       value={newDemandForm.approval_status ?? 'approved'}
                       onChange={e => setNewDemandForm(f => ({ ...f, approval_status: e.target.value as TaskApprovalStatus }))}
-                      className="w-full px-3 py-2 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm"
+                      className="w-full px-3 py-2.5 rounded-xl border border-base-300 bg-base-200 focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary outline-none text-sm transition-smooth"
                     >
                       <option value="approved">Aprovada (valor integral)</option>
                       <option value="rejected">Reprovada (paga 30%)</option>
@@ -613,12 +622,13 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                   </div>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={addNewDemandLine}
                   disabled={!newDemandForm.titulo.trim() || !newDemandForm.design || !newDemandForm.tag || !newDemandForm.dataDemanda}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold bg-brand-primary text-white hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold bg-brand-primary text-white hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-smooth shadow-brand"
                 >
                   <PlusIcon className="h-5 w-5" />
                   Adicionar linha
@@ -628,62 +638,69 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, designers, onAddTask, onIn
                     type="button"
                     onClick={(e) => handleCreateDemands(e)}
                     disabled={isSubmittingNewDemands}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition-smooth"
                   >
                     {isSubmittingNewDemands ? 'Criando...' : `Criar ${newDemandLines.reduce((acc, r) => acc + r.quantidade, 0)} demanda(s)`}
                   </button>
                 )}
               </div>
-              {newDemandLines.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-base-300/50 max-h-48 overflow-y-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-base-200/95 z-10">
-                      <tr className="border-b border-base-300">
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Título</th>
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Artista</th>
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Design</th>
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Tag</th>
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Data</th>
-                        <th className="px-3 py-2 font-semibold text-base-content-secondary">Qtd</th>
-                        {isDirector && <th className="px-3 py-2 font-semibold text-base-content-secondary">Status</th>}
-                        <th className="px-3 py-2 w-10" aria-label="Remover" />
+            </section>
+
+            {newDemandLines.length > 0 && (
+              <section className="space-y-3 pt-2 border-t border-base-300/50">
+                <h4 className="text-sm font-semibold text-base-content-secondary uppercase tracking-wide">
+                  Linhas adicionadas ({newDemandLines.length})
+                </h4>
+                <div className="overflow-x-auto rounded-xl border border-base-300/50 max-h-56 overflow-y-auto custom-scrollbar">
+                  <table className="w-full text-left text-sm min-w-[600px]">
+                    <thead className="sticky top-0 bg-base-200/95 backdrop-blur-sm z-10 border-b border-base-300">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Título</th>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Artista</th>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Design</th>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Tag</th>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Data</th>
+                        <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Qtd</th>
+                        {isDirector && <th className="px-4 py-3 font-semibold text-base-content-secondary whitespace-nowrap">Status</th>}
+                        <th className="px-4 py-3 w-12" aria-label="Remover" />
                       </tr>
                     </thead>
                     <tbody>
                       {newDemandLines.map(row => {
                         const isRejected = (row.approval_status ?? 'approved') === 'rejected';
                         return (
-                        <tr key={row.id} className="border-b border-base-300/30 last:border-b-0">
-                          <td className="px-3 py-2 text-base-content">{row.titulo}</td>
-                          <td className="px-3 py-2 text-base-content-secondary">{row.artista || '—'}</td>
-                          <td className="px-3 py-2 text-base-content-secondary">{row.design || '—'}</td>
-                          <td className="px-3 py-2 text-base-content-secondary">{row.tag || '—'}</td>
-                          <td className="px-3 py-2 text-base-content-secondary">{row.dataDemanda ? new Date(row.dataDemanda + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                          <td className="px-3 py-2 text-base-content-secondary">{row.quantidade}</td>
-                          {isDirector && (
-                            <td className="px-3 py-2">
-                              <span className={`text-xs font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
-                                {isRejected ? 'Reprovada (30%)' : 'Aprovada'}
-                              </span>
+                          <tr key={row.id} className="border-b border-base-300/30 last:border-b-0 hover:bg-base-200/30 transition-colors">
+                            <td className="px-4 py-3 text-base-content font-medium">{row.titulo}</td>
+                            <td className="px-4 py-3 text-base-content-secondary">{row.artista || '—'}</td>
+                            <td className="px-4 py-3 text-base-content-secondary">{row.design || '—'}</td>
+                            <td className="px-4 py-3 text-base-content-secondary">{row.tag || '—'}</td>
+                            <td className="px-4 py-3 text-base-content-secondary whitespace-nowrap">{row.dataDemanda ? new Date(row.dataDemanda + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                            <td className="px-4 py-3 text-base-content-secondary">{row.quantidade}</td>
+                            {isDirector && (
+                              <td className="px-4 py-3">
+                                <span className={`text-xs font-medium ${isRejected ? 'text-amber-500' : 'text-green-600'}`}>
+                                  {isRejected ? 'Reprovada (30%)' : 'Aprovada'}
+                                </span>
+                              </td>
+                            )}
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => removeNewDemandLine(row.id)}
+                                className="p-2 text-base-content-secondary hover:text-error hover:bg-error/10 rounded-lg transition-smooth"
+                                title="Remover linha"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
                             </td>
-                          )}
-                          <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => removeNewDemandLine(row.id)}
-                              className="p-1.5 text-base-content-secondary hover:text-error hover:bg-error/10 rounded-lg transition-colors"
-                              title="Remover linha"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );})}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
+              </section>
+            )}
           </>
         )}
       </Modal>
