@@ -1,0 +1,16 @@
+---
+description: Regra de negócio: designers fixos (Rafael, Marlon) — demandas não entram na parte financeira
+globs: "**/FinancialControlView.tsx,**/DashboardView.tsx,**/DesignersView.tsx"
+alwaysApply: false
+---
+
+# Designers fixos e parte financeira
+
+- **Rafael Henrique** e **Marlon Bastos** são designers **fixos** (`DesignerType.Fixed`).
+- Ao adicionar demanda para eles, essas demandas **não devem ser contadas na parte financeira** (totais de produção, custo freelas, pagamento semanal, resumo mensal).
+- Nos cálculos financeiros (Controle Financeiro, Dashboard, totais de período), usar sempre apenas designers **freelancers** (`d.type !== DesignerType.Fixed`) para:
+  - soma de valores de demandas (`getTaskPayableValue`);
+  - totais de produção do mês;
+  - custo do período;
+  - qualquer total que represente “gasto com demandas”.
+- Fixos podem ter demandas atribuídas (para relatório e acompanhamento), mas salário de fixo vem do campo `designer.salary`; demandas deles não somam ao total financeiro.
