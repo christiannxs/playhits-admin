@@ -8,7 +8,7 @@ import EmptyState from './EmptyState';
 
 const ARTISTAS_SELECIONAVEIS = [
   'Aldair Playboy', 'Briola Ferro na Boneca', 'Cesinha', 'Fábricia Cantora', 'Felipe Grilo', 'Felipão',
-  'Forró dos 3', 'John Vaqueiro', 'Ju Moura', 'Kátia Cilene', 'Kelvy Pablo', 'Laninha Show', 'Mara Pavanelly', 'Pagula',
+  'Forró dos 3', 'Heytor o Boyzinho', 'John Vaqueiro', 'Ju Moura', 'Kátia Cilene', 'Kelvy Pablo', 'Laninha Show', 'Mara Pavanelly', 'Pagula',
   'PHD MKT', 'Renno Poeta', 'Tony Guerra',
 ] as const;
 
