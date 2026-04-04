@@ -7,9 +7,23 @@ import { PlusIcon, ClockIcon, PencilIcon, TrashIcon, ClipboardDocumentListIcon }
 import EmptyState from './EmptyState';
 
 const ARTISTAS_SELECIONAVEIS = [
-  'Aldair Playboy', 'Briola Ferro na Boneca', 'Cesinha', 'Fábricia Cantora', 'Felipe Grilo', 'Felipão',
-  'Forró dos 3', 'Heytor o Boyzinho', 'John Vaqueiro', 'Ju Moura', 'Kátia Cilene', 'Kelvy Pablo', 'Laninha Show', 'Mara Pavanelly', 'Pagula',
-  'PHD MKT', 'Renno Poeta', 'Tony Guerra',
+  'Aldair Playboy',
+  'Briola Ferro na Boneca',
+  'Cesinha',
+  'Fábricia Cantora',
+  'Felipão',
+  'Forró dos 3',
+  'Forró Sacode',
+  'Heytor o Boyzinho',
+  'John Vaqueiro',
+  'Ju Moura',
+  'Kátia Cilene',
+  'Kelvy Pablo',
+  'Laninha Show',
+  'Mara Pavanelly',
+  'PHD',
+  'Renno Poeta',
+  'Vitinho do Brega',
 ] as const;
 
 const SOLICITANTES_SELECIONAVEIS = [
