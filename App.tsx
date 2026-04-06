@@ -1,16 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { ViewType, Designer } from './types';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { ViewType } from './types';
 import Header from './components/Header';
-import DashboardView from './components/DashboardView';
-import TasksView from './components/TasksView';
-import ReportsView from './components/ReportsView';
-import FinancialControlView from './components/FinancialControlView';
-import DesignersView from './components/DesignersView';
+import AppFooter from './components/AppFooter';
 import LoginView from './components/LoginView';
 import ConfigurationErrorView from './components/ConfigurationErrorView';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { configurationError, supabase } from './lib/supabaseClient';
 import { useAppData } from './hooks/useAppData';
+
+const DashboardView = lazy(() => import('./components/DashboardView'));
+const TasksView = lazy(() => import('./components/TasksView'));
+const ReportsView = lazy(() => import('./components/ReportsView'));
+const FinancialControlView = lazy(() => import('./components/FinancialControlView'));
+const DesignersView = lazy(() => import('./components/DesignersView'));
+
+function ViewSuspenseFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4" role="status" aria-live="polite">
+      <div
+        className="w-10 h-10 rounded-full border-2 border-base-300 border-t-brand-primary animate-spin-slow"
+        aria-hidden
+      />
+      <p className="text-base-content-secondary text-sm font-medium">Carregando módulo…</p>
+    </div>
+  );
+}
 
 const App: React.FC = () => {
   if (configurationError || !supabase) {
@@ -155,42 +169,44 @@ const App: React.FC = () => {
         currentPageTitle={viewNames[activeView]}
       />
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <main className="main-content-scroll flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10 overflow-y-auto">
-          <div className="max-w-5xl mx-auto w-full">
-            {apiError && (
-              <div
-                className="bg-red-900/30 border border-red-500/40 text-red-200 p-4 rounded-2xl mb-6 relative shadow-card flex flex-col gap-2"
-                role="alert"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <h4 className="font-semibold text-red-100">Ocorreu um erro</h4>
-                  <button
-                    type="button"
-                    onClick={() => setApiError(null)}
-                    className="shrink-0 p-1.5 rounded-lg text-red-300 hover:text-white hover:bg-red-500/20 transition-smooth"
-                    aria-label="Fechar aviso de erro"
-                  >
-                    &times;
-                  </button>
+        <main className="main-content-scroll flex-1 px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-8 overflow-y-auto">
+          <div className="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto w-full min-h-full flex flex-col">
+            <div className="app-content-panel flex-1 flex flex-col p-4 sm:p-6 lg:p-8">
+              {apiError && (
+                <div
+                  className="bg-red-900/30 border border-red-500/40 text-red-200 p-4 rounded-2xl mb-6 relative shadow-card flex flex-col gap-2"
+                  role="alert"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <h4 className="font-semibold text-red-100">Ocorreu um erro</h4>
+                    <button
+                      type="button"
+                      onClick={() => setApiError(null)}
+                      className="shrink-0 p-1.5 rounded-lg text-red-300 hover:text-white hover:bg-red-500/20 transition-smooth"
+                      aria-label="Fechar aviso de erro"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <pre className="text-sm whitespace-pre-wrap font-sans opacity-90 overflow-x-auto">
+                    {apiError}
+                  </pre>
                 </div>
-                <pre className="text-sm whitespace-pre-wrap font-sans opacity-90 overflow-x-auto">
-                  {apiError}
-                </pre>
-              </div>
-            )}
-            <ViewErrorBoundary
-              viewName={viewNames[activeView]}
-              onReset={() => setActiveView('dashboard')}
-            >
-              <div key={activeView} className="animate-fade-in">
-                {renderView()}
-              </div>
-            </ViewErrorBoundary>
+              )}
+              <ViewErrorBoundary
+                viewName={viewNames[activeView]}
+                onReset={() => setActiveView('dashboard')}
+              >
+                <Suspense fallback={<ViewSuspenseFallback />}>
+                  <div key={activeView} className="animate-fade-in flex-1 min-w-0">
+                    {renderView()}
+                  </div>
+                </Suspense>
+              </ViewErrorBoundary>
+            </div>
           </div>
         </main>
-        <footer className="flex-shrink-0 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-widest px-4">
-          Desenvolvido por Christian Rodrigues · PhD Marketing Inteligente
-        </footer>
+        <AppFooter />
       </div>
     </div>
   );

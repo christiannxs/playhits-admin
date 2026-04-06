@@ -12,7 +12,7 @@ interface DashboardViewProps {
   loggedInUser: Designer;
 }
 
-const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
+const StatCard = React.memo<{ title: string; value: string; icon: React.ReactNode }>(({ title, value, icon }) => (
     <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl flex items-center gap-4 h-full transition-smooth">
         <div className="bg-brand-primary/12 p-3.5 rounded-xl flex-shrink-0 text-brand-primary ring-1 ring-brand-primary/10">
             {icon}
@@ -22,7 +22,8 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
             <p className="text-xl sm:text-2xl font-bold text-base-content truncate mt-0.5">{value}</p>
         </div>
     </div>
-);
+));
+StatCard.displayName = 'StatCard';
 
 
 type PeriodType = 'week' | 'month' | 'year' | 'custom';

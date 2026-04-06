@@ -1,4 +1,5 @@
 import React from 'react';
+import AppFooter from './AppFooter';
 
 const TermsView: React.FC = () => {
   const goBack = () => {
@@ -7,18 +8,18 @@ const TermsView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-base-200">
+    <div className="app-fullpage">
       <main className="flex-1 p-6 sm:p-8 lg:p-10">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl xl:max-w-4xl mx-auto w-full">
           <button
             type="button"
             onClick={goBack}
-            className="text-base-content-secondary hover:text-base-content text-sm font-medium mb-8 transition-smooth"
+            className="inline-flex items-center gap-2 text-sm font-medium mb-8 px-4 py-2.5 rounded-xl border border-base-300/50 bg-base-100/50 text-base-content-secondary hover:text-base-content hover:bg-base-300/40 hover:border-base-300/70 transition-smooth"
           >
-            ← Voltar ao aplicativo
+            <span aria-hidden>←</span> Voltar ao aplicativo
           </button>
 
-          <article className="bg-base-100 rounded-3xl shadow-card border border-base-300/40 p-8 sm:p-10 space-y-8">
+          <article className="section-card bg-base-100/98 backdrop-blur-md rounded-3xl p-8 sm:p-10 space-y-8">
             <header>
               <h1 className="text-2xl sm:text-3xl font-bold text-base-content">
                 Termos de Uso
@@ -121,9 +122,7 @@ const TermsView: React.FC = () => {
           </article>
         </div>
       </main>
-      <footer className="bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary no-print uppercase tracking-wider">
-        aplicativo desenvolvido por Christian Rodrigues · phd marketing inteligente
-      </footer>
+      <AppFooter />
     </div>
   );
 };

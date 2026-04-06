@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { UserIcon, LockClosedIcon } from './icons/Icons';
+import AppFooter from './AppFooter';
 import logophd from '../images/logophd.png';
 
 
@@ -29,7 +30,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-base-200 relative overflow-hidden">
+    <div className="app-fullpage relative overflow-hidden">
       <main className="flex-1 flex items-center justify-center p-6 sm:p-8 relative z-10 animate-fade-in">
         <div className="w-full max-w-md p-8 sm:p-10 space-y-8 section-card bg-base-100/98 backdrop-blur-md rounded-3xl transition-smooth">
           <div className="flex flex-col items-center space-y-5">
@@ -82,9 +83,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, profileError }) => {
           </form>
         </div>
       </main>
-      <footer className="relative z-10 bg-base-100/90 backdrop-blur-sm border-t border-base-300/40 text-center py-4 text-xs text-base-content-secondary/80 no-print uppercase tracking-widest px-4">
-        Desenvolvido por Christian Rodrigues · PhD Marketing Inteligente
-      </footer>
+      <div className="relative z-10">
+        <AppFooter />
+      </div>
     </div>
   );
 };
