@@ -102,6 +102,29 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
     return { freelancerReports, totalPeriodSpend, periodFreelancerTotal, completedTasksInPeriod };
   }, [designers, tasks, advances, currentPeriodRange, periodType]);
 
+  /** Produção do mês corrente do designer fixo Rafael Henrique (visível só para o Diretor; não entra nos totais de freelas). */
+  const rafaelHenriqueMonthlyProduction = useMemo(() => {
+    if (!isDirector) return null;
+    const rafael = designers.find(
+      (d) => d.name.trim().toLowerCase() === 'rafael henrique'
+    );
+    if (!rafael) return null;
+    const tasksInMonth = tasks.filter(
+      (task) =>
+        task.designer_id === rafael.id &&
+        isTaskInPeriod(task, monthRange.start, monthRange.end)
+    );
+    const productionTotal = tasksInMonth.reduce(
+      (sum, task) => sum + getTaskPayableValue(task),
+      0
+    );
+    return {
+      productionTotal,
+      taskCount: tasksInMonth.length,
+      range: monthRange,
+    };
+  }, [isDirector, designers, tasks, monthRange]);
+
   // Memoized data for the specific designer view
   const selectedDesignerData = useMemo(() => {
     if (selectedDesignerId === 'overview') return null;
@@ -156,6 +179,33 @@ const UnifiedAdminDashboard: React.FC<DashboardViewProps> = ({
           <StatCard title={`Custo Freelas (${periodLabel})`} value={formatCurrency(overviewData.periodFreelancerTotal)} icon={<MoneyIcon className="text-brand-primary" />} />
           <StatCard title={`Demandas Concluídas (${periodLabel})`} value={overviewData.completedTasksInPeriod.toString()} icon={<CheckCircleIcon className="text-brand-primary" />} />
         </div>
+
+        {isDirector && rafaelHenriqueMonthlyProduction && (
+          <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl border border-brand-primary/20 no-print">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-base-content">Produção mensal — Rafael Henrique</h3>
+                <p className="text-sm text-base-content-secondary mt-1">
+                  Mês corrente: {formatDate(toLocalDateString(rafaelHenriqueMonthlyProduction.range.start))} a{' '}
+                  {formatDate(toLocalDateString(rafaelHenriqueMonthlyProduction.range.end))}
+                </p>
+                <p className="text-xs text-base-content-secondary mt-2">
+                  Designer fixo: volume de demandas concluídas no mês (valores referenciais; não compõem o custo de freelas acima).
+                </p>
+              </div>
+              <div className="flex flex-col sm:items-end gap-2">
+                <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wide">Total produzido (mês)</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-400 tabular-nums">
+                  {formatCurrency(rafaelHenriqueMonthlyProduction.productionTotal)}
+                </p>
+                <p className="text-sm text-base-content-secondary">
+                  {rafaelHenriqueMonthlyProduction.taskCount} demanda
+                  {rafaelHenriqueMonthlyProduction.taskCount === 1 ? '' : 's'} no período
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isDirector && (
           <div className="section-card bg-base-100/90 backdrop-blur-sm p-6 rounded-2xl">
