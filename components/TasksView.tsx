@@ -11,6 +11,7 @@ const ARTISTAS_SELECIONAVEIS = [
   'Briola Ferro na Boneca',
   'Cesinha',
   'Fábricia Cantora',
+  'Felipe Grilo',
   'Felipão',
   'Forró dos 3',
   'Forró Sacode',
